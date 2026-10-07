@@ -167,7 +167,7 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
 <script>
 /* ---------- Backend connection (GitHub Pages -> Apps Script web app) ---------- */
 // Paste your Apps Script web app URL here (ends with /exec). It is safe to commit; the token is not stored in this file.
-const API_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwehuPHKbGyLzI7v3gee_r91UCXw58vYrsf1TdxrHMx8VO7jtRIX_DNnEpJOBwoxQk5IQ/exec';
 
 async function apiCall(fn, args) {
   if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) throw new Error('Set API_URL at the top of the script in index.html.');
