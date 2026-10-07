@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyBudjet Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f2f5f4; --card:#fff; --ink:#17262b; --mute:#63757b; --rule:#d8dfdd;
+  --accent:#0c6a62; --accent-soft:#dcefec; --neg:#ae3a2b; --pos:#1d7848; --warn:#a96d12; --warn-soft:#f8ecd2;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0;font-weight:600;letter-spacing:-.01em}
+#status{padding:5px 12px;border-radius:999px;font-weight:500;font-size:13px;border:1px solid var(--rule);background:var(--paper);cursor:pointer}
+#status.ok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+#status.bad{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+nav{display:flex;gap:4px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--rule);overflow-x:auto}
+nav button{border:0;background:none;padding:11px 14px;font:inherit;color:var(--mute);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+main{padding:18px 20px 60px;max-width:1280px;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:14px;margin-bottom:14px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;gap:3px;color:var(--mute);font-size:12px}
+select,input[type=text],input[type=number],input[type=search]{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;min-width:0}
+select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:var(--mute)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.group-title{font-size:12px;color:var(--mute);margin-top:12px;display:flex;gap:10px;align-items:center}
+.link{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+.btn{font:inherit;padding:7px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.btn.alt{background:#fff;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.summary{display:flex;gap:22px;flex-wrap:wrap;margin:0 0 10px;color:var(--mute)}
+.summary b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:#fff}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--rule);white-space:nowrap;vertical-align:middle}
+th{background:var(--paper);font-weight:600;font-size:12px;color:var(--mute);position:sticky;top:0}
+td.n,th.n{text-align:right}
+td.sms{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
+tr.exp td.amt{color:var(--neg)} tr.inc td.amt{color:var(--pos)} tr.btw td.amt{color:var(--mute)}
+tr.todo td:first-child{box-shadow:inset 3px 0 var(--warn)}
+.tag{display:inline-block;padding:1px 7px;border-radius:3px;background:var(--paper);font-size:12px}
+.check{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--rule)}
+.check:last-child{border-bottom:0}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+.dot.ok{background:var(--pos)} .dot.bad{background:var(--warn)}
+.check small{color:var(--mute);display:block}
+.empty{padding:26px;text-align:center;color:var(--mute)}
+#err{display:none;background:#fbe6e2;border:1px solid var(--neg);color:var(--neg);padding:10px 14px;border-radius:6px;margin-bottom:14px}
+#loading{padding:40px;text-align:center;color:var(--mute)}
+.inline{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+td input[type=number]{width:120px;text-align:right}
+textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;width:100%;resize:vertical}
+.hide{display:none!important}
+.invalid{border-color:var(--neg)!important;background:#fbe6e2!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>MyBudjet ledger</h1>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button class="btn alt" id="reload">Reload data</button>
+    <div id="status" title="Open verification">Loading…</div>
+  </div>
+</header>
+<nav id="tabs">
+  <button data-t="records" class="on">Records</button>
+  <button data-t="accounts">Accounts &amp; verification</button>
+  <button data-t="cats">Categorize</button>
+  <button data-t="add">Add entry</button>
+</nav>
+<main>
+  <div id="err"></div>
+  <div id="loading">Reading the Responses sheet…</div>
+
+  <section id="records" hidden>
+    <div class="panel">
+      <div class="controls">
+        <label class="f">Operation<select id="fOp"></select></label>
+        <label class="f">Details<select id="fDet"></select></label>
+        <label class="f">Salary period<select id="fSal"></select></label>
+        <label class="f">Category<select id="fCat"></select></label>
+        <label class="f">Search (SMS, extras, details)<input type="search" id="fQ"></label>
+      </div>
+      <div class="group-title">People &amp; extras <button class="link" id="clrP">clear</button></div>
+      <div class="chips" id="chipsP"></div>
+      <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
+      <div class="chips" id="chipsD"></div>
+    </div>
+    <div class="summary" id="sum"></div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
+  </section>
+
+  <section id="accounts" hidden>
+    <div class="panel">
+      <b>Verification</b>
+      <div id="checks"></div>
+    </div>
+    <div class="tablewrap"><table id="acc"></table></div>
+    <p style="color:var(--mute)">Credit = opening + deposited − withdrawn − fees + cash back. Fees and cash back are applied to the Withdrawn account. Opening balances are saved with the web app.</p>
+  </section>
+
+  <section id="cats" hidden>
+    <div class="panel">
+      <div class="inline">
+        <label class="f">Category<select id="bCat"></select></label>
+        <label class="f">Sub-category<input type="text" id="bSub" list="subList"></label>
+        <button class="btn alt" id="bApply">Apply to checked rows</button>
+        <label style="display:flex;gap:6px;align-items:center;margin-left:auto"><input type="checkbox" id="showAll"> Show already categorized</label>
+      </div>
+      <div class="inline" style="margin-top:12px">
+        <label class="f">New category<input type="text" id="newCat"></label>
+        <button class="btn alt" id="addCat">Add category</button>
+      </div>
+    </div>
+    <datalist id="subList"></datalist>
+    <div class="tablewrap"><table id="ctbl"></table></div>
+    <p><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--mute)"></span></p>
+  </section>
+  <section id="add" hidden>
+    <div class="panel">
+      <label class="f">Bank SMS (paste here and the form fills itself)
+        <textarea id="aeSms" rows="4" placeholder="Paste the full bank SMS here..."></textarea>
+      </label>
+      <div class="inline" style="margin-top:8px">
+        <button class="btn alt" id="aePasteSms" type="button">Paste from clipboard</button>
+        <span id="aeSmsStatus" style="color:var(--mute)"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <label class="f">Transaction type<select id="aeType"></select></label>
+        <label class="f" id="aeWdBox">Withdrawn from<select id="aeWd"></select></label>
+        <label class="f hide" id="aeO1Box">1st other account<input type="text" id="aeO1"></label>
+        <label class="f" id="aeOpBox">Operation type<select id="aeOp"></select></label>
+        <label class="f" id="aeFeeBox">Fees (SAR)<select id="aeFee"></select></label>
+        <label class="f hide" id="aeDepBox">Deposited into<select id="aeDep"></select></label>
+        <label class="f hide" id="aeO2Box">2nd other account<input type="text" id="aeO2"></label>
+        <label class="f">Amount (SAR)<input type="text" id="aeAmt" inputmode="decimal" placeholder="0.00"></label>
+        <label class="f">Date<input type="date" id="aeDate"></label>
+        <label class="f">Hour<input type="text" id="aeH" inputmode="numeric" maxlength="2" placeholder="HH"></label>
+        <label class="f">Minute<input type="text" id="aeM" inputmode="numeric" maxlength="2" placeholder="MM"></label>
+        <label class="f">Details<select id="aeDet"></select></label>
+        <label class="f">Extras<input type="text" id="aeExtras" placeholder="Item, merchant, person..."></label>
+        <label class="f">Cash back<select id="aeCb"></select></label>
+        <label class="f hide" id="aeCbAmtBox">Cash back amount<input type="text" id="aeCbAmt" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <label class="f hide" id="aeCbSmsBox" style="margin-top:10px">Cash back SMS (optional)
+        <textarea id="aeCbSms" rows="2" placeholder="Cash back notification SMS..."></textarea>
+        <span><button class="btn alt" id="aePasteCb" type="button" style="margin-top:6px">Paste from clipboard</button></span>
+      </label>
+      <p id="aeErr" style="color:var(--neg);margin:10px 0 0"></p>
+      <p style="margin:10px 0 0"><button class="btn" id="aeSave" type="button">Submit entry</button> <span id="aeMsg" style="color:var(--mute)"></span></p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ---------- Backend connection (GitHub Pages -> Apps Script web app) ---------- */
+// Paste your Apps Script web app URL here (ends with /exec). It is safe to commit; the token is not stored in this file.
+const API_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
+async function apiCall(fn, args) {
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) throw new Error('Set API_URL at the top of the script in index.html.');
+  let token = localStorage.getItem('mb_token');
+  if (!token) { token = prompt('Access token (the API_TOKEN you set in Apps Script):'); if (!token) throw new Error('Access token required.'); localStorage.setItem('mb_token', token.trim()); token = token.trim(); }
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},   // avoids a CORS preflight, which Apps Script cannot answer
+    body: JSON.stringify({fn: fn, args: args, token: token})
+  });
+  let j; try { j = await res.json(); } catch (e) { throw new Error('Bad response from the backend (check the deployment access is "Anyone").'); }
+  if (!j.ok) { if (j.error === 'unauthorized') localStorage.removeItem('mb_token'); throw new Error(j.error === 'unauthorized' ? 'Wrong access token. Reload and enter it again.' : j.error); }
+  return j.data;
+}
+// Keeps the rest of the code unchanged: google.script.run.withSuccessHandler(..).withFailureHandler(..).fn(args)
+function makeRunner(ok, fail) {
+  return new Proxy({}, {get: (_, name) => {
+    if (name === 'withSuccessHandler') return f => makeRunner(f, fail);
+    if (name === 'withFailureHandler') return f => makeRunner(ok, f);
+    return (...args) => { apiCall(String(name), args).then(ok || (() => {})).catch(fail || (e => console.error(e))); };
+  }});
+}
+window.google = {script: {run: makeRunner()}};
+
+/* ---------- constants ---------- */
+const AUTO = ['Mobiles, Net','Kahraba','NWC','Health','Expense','Meets','Resturants','Water','Gas95','House Items','Kitchen Items'];
+const MANUAL = ['My Relatives','Travels','Sakani','My Incomes','Loan installment','Driver','Flex 2016','Durango','Khayraat','Shopping','Devices','Maintenance','Al Ons','M3assel','Fees','Cash Back','Other','Betweens'];
+const PEOPLE = ['DAD','MOM','MUNA','MURTAJA','ALI','ABO MAYTHAM','MURTADHA','MOHAMMED','BUSHRA','WALAA','MUJTABA','ZAHRAA'];
+const OPS = ['All','Expenses','Incomes','Between Acounts'];
+const DEFAULT_CATS = ['Income','Debts','Community & Car','My Relatives','Travels','Electronics','Shopping','2nd Car'];
+const SALARY = ['26/02/26','26/03/26','27/04/26','27/05/26','28/06/26','27/07/26','27/08/26','27/09/26','27/10/26','26/11/26','27/12/26','27/01/27','28/02/27'];
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => (n || 0).toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const dmyToIso = s => { const [d, m, y] = s.split('/'); return '20' + y + '-' + m + '-' + d; };
+const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const PERIODS = SALARY.map((s, i) => {
+  const start = dmyToIso(s);
+  const end = i < SALARY.length - 1 ? addDays(dmyToIso(SALARY[i + 1]), -1) : addDays(start, 30);
+  return {label: s + '  →  ' + end.split('-').reverse().join('/'), start, end};
+});
+
+let rows = [], cfg = {}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 200;
+
+function normOp(r) {
+  const o = (r.op || '').toLowerCase();
+  if (o.includes('between')) return 'Between Acounts';
+  if (o.includes('income')) return 'Incomes';
+  if (o.includes('expense')) return 'Expenses';
+  if (r.dep && r.wd) return 'Between Acounts';
+  return r.dep ? 'Incomes' : 'Expenses';
+}
+const catOf = r => r.cat || (AUTO.includes(r.det) ? r.det : '');
+const needsCat = r => !r.cat && !AUTO.includes(r.det) && r.op2 !== 'Between Acounts' && r.det !== 'Betweens';
+const cats = () => cfg.cats && cfg.cats.length ? cfg.cats : DEFAULT_CATS;
+
+/* ---------- load ---------- */
+function load() {
+  $('loading').hidden = false; $('err').style.display = 'none';
+  google.script.run.withSuccessHandler(init).withFailureHandler(showErr).dashGetData();
+}
+function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
+function init(d) {
+  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {};
+  rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
+  // Sheet 2: sorted by action date, then H, then M, then timestamp
+  rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
+  pend = {};
+  $('loading').hidden = true;
+  if (d.missing && d.missing.length) {
+    const need = d.missing.filter(k => !['url', 'cat', 'sub', 'sms2', 'o1', 'o2'].includes(k));
+    if (need.length) { $('err').style.display = 'block'; $('err').textContent = 'Header not found in Responses: ' + need.join(', '); }
+  }
+  buildFilters(); renderAll();
+  showTab(document.querySelector('#tabs .on').dataset.t);
+}
+function renderAll() { renderRecords(); renderAccounts(); renderCats(); }
+
+/* ---------- Sheet 3: filter ---------- */
+function opt(list, sel) { return list.map(x => '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>').join(''); }
+function buildFilters() {
+  $('fOp').innerHTML = opt(OPS);
+  $('fDet').innerHTML = opt(['All', ...AUTO, ...MANUAL]);
+  $('fSal').innerHTML = '<option value="">All dates</option>' + PERIODS.map((p, i) => '<option value="' + i + '">' + esc(p.label) + '</option>').join('');
+  $('fCat').innerHTML = opt(['All', ...AUTO, ...cats()]);
+  const mk = (arr, set, id) => { $(id).innerHTML = arr.map(x => '<button class="chip' + (set.has(x) ? ' on' : '') + '" data-v="' + esc(x) + '">' + esc(x) + '</button>').join(''); };
+  mk(PEOPLE, chipP, 'chipsP'); mk([...AUTO, ...MANUAL], chipD, 'chipsD');
+}
+function personHit(r, name) {
+  const re = new RegExp('(^|[^A-Z])' + name + '($|[^A-Z])');
+  return re.test((r.ex || '').toUpperCase());
+}
+function filtered() {
+  const op = $('fOp').value, det = $('fDet').value, cat = $('fCat').value, q = $('fQ').value.trim().toLowerCase();
+  const p = $('fSal').value === '' ? null : PERIODS[+$('fSal').value];
+  return rows.filter(r => {
+    if (op !== 'All' && r.op2 !== op) return false;
+    if (det !== 'All' && r.det !== det) return false;
+    if (cat !== 'All' && catOf(r) !== cat) return false;
+    if (p && !(r.date >= p.start && r.date <= p.end)) return false;
+    if (q && !(r.sms + ' ' + r.ex + ' ' + r.det + ' ' + r.sub).toLowerCase().includes(q)) return false;
+    if (chipP.size || chipD.size) {
+      const hitP = [...chipP].some(n => personHit(r, n));
+      const hitD = chipD.has(r.det);
+      if (!(hitP || hitD)) return false;
+    }
+    return true;
+  });
+}
+function renderRecords() {
+  const f = filtered();
+  const inc = f.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
+  const exp = f.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
+  const btw = f.filter(r => r.op2 === 'Between Acounts').reduce((s, r) => s + r.amt, 0);
+  const fee = f.reduce((s, r) => s + r.fee, 0);
+  $('sum').innerHTML = '<span>Rows <b>' + f.length + '</b></span><span>Incomes <b>' + money(inc) + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Between accounts <b>' + money(btw) + '</b></span><span>Fees <b>' + money(fee) + '</b></span><span>Net <b>' + money(inc - exp - fee) + '</b></span>';
+  const hasUrl = rows.some(r => r.url);
+  const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
+  if (!f.length) { $('tbl').innerHTML = head + '<tr><td colspan="13" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
+  const body = f.slice(0, shown).map(r => {
+    const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
+    const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
+    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd) + '</td><td>' + esc(r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td class="n">' + (r.fee ? money(r.fee) : '') + '</td><td>' + esc(r.det) + '</td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<i style="color:var(--warn)">needs category</i>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank">edit</a>' : '') + '</td>' : '') + '</tr>';
+  }).join('');
+  $('tbl').innerHTML = head + body;
+  $('more').hidden = f.length <= shown; $('more').textContent = 'Show 200 more (' + (f.length - shown) + ' left)';
+}
+
+/* ---------- Sheet 4: accounts + verification ---------- */
+function calc() {
+  const A = {}, get = n => A[n] || (A[n] = {inn: 0, out: 0, fee: 0, cb: 0});
+  const t = {inc: 0, exp: 0, fee: 0, cb: 0}, bad = [];
+  rows.forEach(r => {
+    if (r.dep) get(r.dep).inn += r.amt;
+    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; a.cb += r.amt2; }
+    if (r.op2 === 'Incomes') t.inc += r.amt; else if (r.op2 === 'Expenses') t.exp += r.amt;
+    t.fee += r.fee; t.cb += r.amt2;
+    const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || ((r.fee || r.amt2) && !r.wd) || !r.date;
+    if (miss) bad.push(r);
+  });
+  return {A, t, bad};
+}
+function renderAccounts() {
+  const {A, t, bad} = calc();
+  const names = Object.keys(A).sort();
+  let sumOpen = 0, sumCredit = 0;
+  const body = names.map(n => {
+    const a = A[n], open = +cfg.opening[n] || 0, credit = open + a.inn - a.out - a.fee + a.cb;
+    sumOpen += open; sumCredit += credit;
+    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td><td class="n">' + money(a.inn) + '</td><td class="n">' + money(a.out) + '</td><td class="n">' + money(a.fee) + '</td><td class="n">' + money(a.cb) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
+  }).join('');
+  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th><th class="n">Deposited</th><th class="n">Withdrawn</th><th class="n">Fees</th><th class="n">Cash back</th><th class="n">Credit</th></tr>' + (body || '<tr><td colspan="7" class="empty">No accounts found in Responses.</td></tr>') + '<tr><td><b>Total</b></td><td class="n"><b>' + money(sumOpen) + '</b></td><td colspan="4"></td><td class="n"><b>' + money(sumCredit) + '</b></td></tr>';
+
+  const expected = sumOpen + t.inc - t.exp - t.fee + t.cb;
+  const diff = Math.round((sumCredit - expected) * 100) / 100;
+  const todo = rows.filter(needsCat);
+  const checks = [
+    {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + cash back = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
+    {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
+    {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
+  ];
+  $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
+  const n = checks.filter(c => !c.ok).length;
+  $('status').className = n ? 'bad' : 'ok';
+  $('status').textContent = n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed';
+}
+
+/* ---------- Categorize ---------- */
+function renderCats() {
+  $('bCat').innerHTML = opt(cats());
+  const all = $('showAll').checked;
+  const list = rows.filter(r => all ? (!AUTO.includes(r.det) && r.op2 !== 'Between Acounts') : needsCat(r)).reverse();
+  const subs = new Set(); Object.values(cfg.subs).forEach(a => a.forEach(s => subs.add(s)));
+  $('subList').innerHTML = [...subs].map(s => '<option value="' + esc(s) + '">').join('');
+  if (!list.length) { $('ctbl').innerHTML = '<tr><td class="empty">Nothing to categorize. Manual rows (My Relatives, Travels, Sakani, …) will appear here.</td></tr>'; return; }
+  $('ctbl').innerHTML = '<tr><th></th><th>Row</th><th>Date</th><th>Details</th><th class="n">Amount</th><th>Extras</th><th>Category</th><th>Sub-category</th></tr>' + list.slice(0, 300).map(r => {
+    const p = pend[r.r] || {cat: r.cat, sub: r.sub};
+    return '<tr><td><input type="checkbox" class="ck" data-r="' + r.r + '"></td><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.det) + '</td><td class="n">' + money(r.amt) + '</td><td>' + esc(r.ex) + '</td><td><select data-r="' + r.r + '" data-k="cat"><option value="">—</option>' + opt(cats(), p.cat) + '</select></td><td><input type="text" list="subList" data-r="' + r.r + '" data-k="sub" value="' + esc(p.sub) + '"></td></tr>';
+  }).join('');
+  $('saveCats').disabled = !Object.keys(pend).length;
+}
+function setPend(rn, k, v) {
+  const r = rows.find(x => x.r === rn);
+  pend[rn] = pend[rn] || {cat: r.cat, sub: r.sub};
+  pend[rn][k] = v;
+  $('saveCats').disabled = false; $('saveMsg').textContent = Object.keys(pend).length + ' unsaved change(s)';
+}
+
+/* ---------- events ---------- */
+function showTab(t) {
+  ['records', 'accounts', 'cats', 'add'].forEach(id => $(id).hidden = id !== t);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+}
+$('tabs').onclick = e => { if (e.target.dataset.t) showTab(e.target.dataset.t); };
+$('status').onclick = () => showTab('accounts');
+$('reload').onclick = load;
+['fOp', 'fDet', 'fSal', 'fCat'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
+$('fQ').oninput = () => { shown = 200; renderRecords(); };
+$('more').onclick = () => { shown += 200; renderRecords(); };
+function chipClick(set, id) {
+  $(id).onclick = e => {
+    const v = e.target.dataset.v; if (!v) return;
+    set.has(v) ? set.delete(v) : set.add(v);
+    e.target.classList.toggle('on'); shown = 200; renderRecords();
+  };
+}
+chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD');
+$('clrP').onclick = () => { chipP.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
+$('clrD').onclick = () => { chipD.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
+let t0;
+$('acc').onchange = e => {
+  const n = e.target.dataset.acc; if (!n) return;
+  cfg.opening[n] = parseFloat(e.target.value) || 0;
+  renderAccounts();
+  clearTimeout(t0); t0 = setTimeout(() => google.script.run.dashSaveCfg(JSON.stringify(cfg)), 600);
+};
+$('ctbl').onchange = e => {
+  const rn = +e.target.dataset.r; if (!rn || !e.target.dataset.k) return;
+  setPend(rn, e.target.dataset.k, e.target.value);
+};
+$('showAll').onchange = renderCats;
+$('bApply').onclick = () => {
+  const c = $('bCat').value, s = $('bSub').value.trim();
+  document.querySelectorAll('.ck:checked').forEach(ck => { const rn = +ck.dataset.r; setPend(rn, 'cat', c); setPend(rn, 'sub', s); });
+  const keep = [...document.querySelectorAll('.ck:checked')].map(x => x.dataset.r);
+  renderCats(); keep.forEach(r => { const el = document.querySelector('.ck[data-r="' + r + '"]'); if (el) el.checked = true; });
+};
+$('addCat').onclick = () => {
+  const v = $('newCat').value.trim(); if (!v) return;
+  cfg.cats = cats().slice(); if (!cfg.cats.includes(v)) cfg.cats.push(v);
+  $('newCat').value = ''; google.script.run.dashSaveCfg(JSON.stringify(cfg)); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderCats();
+};
+$('saveCats').onclick = () => {
+  const items = Object.keys(pend).map(k => ({row: +k, cat: pend[k].cat || '', sub: (pend[k].sub || '').trim()}));
+  items.forEach(it => { if (it.cat && it.sub) { cfg.subs[it.cat] = cfg.subs[it.cat] || []; if (!cfg.subs[it.cat].includes(it.sub)) cfg.subs[it.cat].push(it.sub); } });
+  $('saveCats').disabled = true; $('saveMsg').textContent = 'Saving…';
+  google.script.run.withSuccessHandler(() => {
+    items.forEach(it => { const r = rows.find(x => x.r === it.row); r.cat = it.cat; r.sub = it.sub; });
+    pend = {}; google.script.run.dashSaveCfg(JSON.stringify(cfg));
+    $('saveMsg').textContent = 'Saved ' + items.length + ' row(s) to Responses.';
+    renderAll();
+  }).withFailureHandler(e => { $('saveCats').disabled = false; $('saveMsg').textContent = 'Save failed: ' + (e.message || e); }).dashSaveCats(items);
+};
+
+/* ---------- Add entry (MyBudjet form inside the dashboard) ---------- */
+const AE_ACC = ['Ahli Credit','Ahli Credit2','Ahli','SAIB','SAIB Credit','Riyad','Awwal Sabb','STCPay','Fransi','Rajhi','Rajhi Credit','Cash','Other'];
+function aeNorm(s) {
+  if (!s) return '';
+  const map = {'٠':0,'١':1,'٢':2,'٣':3,'٤':4,'٥':5,'٦':6,'٧':7,'٨':8,'٩':9};
+  return s.replace(/[٠-٩]/g, d => map[d]).replace(/٫/g, '.').replace(/[٬,\s]/g, '');
+}
+/* ---------- SMS parser ---------- */
+/* SMS -> MyBudjet fields. Pure function, no DOM. */
+function parseSms(raw, now) {
+  now = now || new Date();
+  var notes = [];
+  var s = String(raw || '')
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/[\u00a0\u2007\u202f]/g, ' ')
+    .replace(/\\+\*/g, '*')
+    .replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); })
+    .replace(/٫/g, '.').replace(/٬/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  var r = { type: '', withdrawn: '', operationType: '', deposited: '', amount: '', fees: '',
+            date: '', h: '', m: '', details: '', sms: String(raw || '').trim(), notes: notes };
+  if (!s) return r;
+  var T = function (re) { return re.test(s); };
+
+  /* ---- accounts ---- */
+  function sourceAccount() {
+    if (T(/\*{1,3}5465/)) return 'Ahli Credit2';
+    if (T(/\*{1,3}0744|X{1,3}0744/)) return 'Ahli Credit';
+    if (T(/X{1,3}0601/)) return 'SAIB Credit';
+    if (T(/X{1,3}(?:7001|8281)/)) return 'SAIB';
+    if (T(/6685/)) return 'Rajhi';
+    if (T(/969940\*|1981\*/)) return 'Riyad';
+    if (T(/\*(?:6429|7878)/)) return 'Ahli';
+    if (T(/Internal (?:outward )?transfer/i) || T(/حوالة داخلية بـ\s*:/)) return 'STCPay';
+    if (T(/0109\*|\*0109|109\*225/)) return 'Ahli';
+    if (T(/شراء-POS|مدى-ابل|حوالة صادرة داخلية مبلغ|حوالة صادرة محلية من/)) return 'Ahli';
+    if (T(/مدى; Atheer|شراء عبر نقاط بيع/)) return 'Riyad';
+    return '';
+  }
+  function receiverAccount() {
+    if (T(/X{1,3}7001/)) return 'SAIB';
+    if (T(/969940\*/)) return 'Riyad';
+    if (T(/6685/)) return 'Rajhi';
+    if (T(/0109\*|\*0109|109\*225/)) return 'Ahli';
+    if (T(/من\s*:?\s*\d{4}\*/)) return 'Ahli';
+    return '';
+  }
+  function cardAccount() {
+    if (T(/\*{1,3}5465/)) return 'Ahli Credit2';
+    if (T(/\*{1,3}0744/)) return 'Ahli Credit';
+    return '';
+  }
+  function ownDestination() {
+    if (T(/STCJ|X{1,3}2581/)) return 'STCPay';
+    if (T(/(?:آيبان|ايبان|IBAN)\s*:?\s*\*?7001/i)) return 'SAIB';
+    if (T(/لبطاقة السفر/)) return 'SAIB Credit';
+    if (T(/(?:لدى|من)\s*:?\s*STC\s*Pay/i) && T(/شراء/)) return 'STCPay';
+    return '';
+  }
+
+  /* ---- amount ---- */
+  var am = s.match(/(?:مبلغ|المبلغ|Amount|Fill|بـ|ب)\u0640?\s*:?\s*(?:(SAR|SR|USD|ر\.?\s?س)\s*)?(\d[\d,]*(?:\.\d+)?)\s*(SAR|SR|USD|ر\.?\s?س)?/i);
+  var amount = null;
+  if (am) {
+    amount = parseFloat(am[2].replace(/,/g, ''));
+    var cur = (am[1] || am[3] || '').toUpperCase();
+    if (cur === 'USD') { amount = amount * 3.75; notes.push('USD amount converted at 3.75'); }
+  }
+  if (/قسط تمويل/.test(s)) {           // several instalments in one SMS: add them up
+    var tot = 0, g, re = /القسط\s*:?\s*SAR\s*([\d,]+(?:\.\d+)?)/g;
+    while ((g = re.exec(s))) tot += parseFloat(g[1].replace(/,/g, ''));
+    if (tot > 0) amount = tot;
+  }
+
+  /* ---- classify ---- */
+  var isOut = /شراء|سحب|خصم|سداد|اضافة مبلغ|POS|Internal (?:outward )?transfer|حوالة|تحويل|الرقم السري لمره واحده/i.test(s);
+  if (/استرجاع نقدي|cash\s*back/i.test(s)) {
+    r.type = 'Incomes'; r.deposited = cardAccount(); r.details = 'Cash Back';
+  } else if (/واردة|إيداع|incoming/i.test(s)) {
+    r.type = 'Incomes'; r.deposited = receiverAccount();
+    if (/راتب/.test(s)) r.details = 'My Incomes';
+  } else if (isOut) {
+    r.type = 'Other';
+    if (/سداد بطاقة/.test(s)) {
+      r.operationType = 'Between Acounts'; r.withdrawn = 'Ahli'; r.deposited = cardAccount();
+    } else {
+      r.withdrawn = sourceAccount();
+      var dest = ownDestination();
+      if (dest && dest !== r.withdrawn) { r.operationType = 'Between Acounts'; r.deposited = dest; }
+      else r.operationType = 'Expenses';
+    }
+    if (/قسط تمويل/.test(s)) r.details = 'Loan installment';
+    if (r.operationType === 'Between Acounts') r.details = 'Betweens';
+  } else {
+    notes.push('Could not recognise this SMS. Choose the type yourself.');
+  }
+  if (r.type === 'Other' && !r.withdrawn) notes.push('Account not recognised. Choose "Withdrawn".');
+  if ((r.type === 'Incomes' || r.operationType === 'Between Acounts') && !r.deposited) notes.push('Account not recognised. Choose "Deposited".');
+
+  /* ---- fee (your sheet records amount + fee) ---- */
+  var fee = null, fm = s.match(/الرسوم\s*:?\s*(?:SAR|SR)?\s*(\d+(?:\.\d+)?)/);
+  if (fm) fee = parseFloat(fm[1]);
+  if (r.type === 'Other') r.fees = '0';
+  if (fee && [0.58, 1.15, 5.75].indexOf(fee) >= 0 && r.type === 'Other') {
+    r.fees = String(fee);
+    if (amount !== null) amount = amount + fee;
+  }
+  if (amount !== null) r.amount = String(Math.round(amount * 100) / 100);
+  else if (r.type) notes.push('Amount not found.');
+
+  /* ---- date / time ---- */
+  var acct = r.type === 'Other' ? r.withdrawn : r.deposited;
+  var mk = function (y, mo, d, h, mi) {
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return false;
+    var dt = new Date(y, mo - 1, d);
+    if (dt.getMonth() !== mo - 1) return false;
+    r.date = dt.getFullYear() + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+    r.h = String(h); r.m = String(mi); return true;
+  };
+  var noYear = function (mo, d, h, mi) {          // SMS without a year: use this year (or last, if that would be the future)
+    var y = now.getFullYear();
+    if (new Date(y, mo - 1, d) - now > 2 * 86400000) y -= 1;
+    return mk(y, mo, d, h, mi);
+  };
+  var m, done = false;
+  if (!done && acct === 'Rajhi' && (m = s.match(/(\d{2})[\/-](\d{1,2})[\/-](\d{1,2}) (\d{1,2}):(\d{2})/)))
+    done = mk(2000 + +m[1], +m[2], +m[3], +m[4], +m[5]);
+  if (!done && (m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})/)))
+    done = mk(+m[1], +m[2], +m[3], +m[4], +m[5]);
+  if (!done && (m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4}) (\d{1,2}):(\d{2})/)))
+    done = mk(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2], +m[1], +m[4], +m[5]);
+  if (!done && (m = s.match(/(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{2})/))) {
+    var a = +m[1], b = +m[2];
+    done = a > 12 ? noYear(b, a, +m[3], +m[4]) : noYear(a, b, +m[3], +m[4]);
+  }
+  if (!done && (m = s.match(/(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})/)))
+    done = noYear(+m[1], +m[2], +m[3], +m[4]);
+  if (!done && (m = s.match(/(\d{1,2}):(\d{2})/)) && +m[1] < 24 && +m[2] < 60) { r.h = String(+m[1]); r.m = String(+m[2]); }
+  return r;
+}
+
+
+/* ---------- Cash Back amount from the Cash Back SMS ---------- */
+function cashBackAmount(text){
+  const r = parseSms(text, new Date());
+  if(r.amount) return r.amount;
+  // looser fallback: a number next to SAR / SR / ريال
+  const s = String(text).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/٫/g, ".").replace(/٬/g, "");
+  const m = s.match(/(?:SAR|SR|ريال|ر\.?\s?س)\s*:?\s*(\d[\d,]*(?:\.\d+)?)/i) || s.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:SAR|SR|ريال|ر\.?\s?س)/i);
+  return m ? String(parseFloat(m[1].replace(/,/g, ""))) : "";
+}
+
+
+function aeFillSel(id, list, ph) {
+  $(id).innerHTML = (ph ? '<option value="">' + ph + '</option>' : '') + list.map(v => '<option>' + esc(v) + '</option>').join('');
+}
+aeFillSel('aeType', ['Other', 'Incomes', 'Refund']);
+aeFillSel('aeWd', AE_ACC, 'Choose account…');
+aeFillSel('aeDep', AE_ACC, 'Choose account…');
+aeFillSel('aeOp', ['Expenses', 'Between Acounts']);
+aeFillSel('aeFee', ['0', '0.58', '1.15', '5.75']);
+aeFillSel('aeCb', ['0', '0.7%', '5%', '11%']);
+aeFillSel('aeDet', [...AUTO, ...MANUAL], '—');
+
+function aeDefaults() {
+  const n = new Date(), p = x => String(x).padStart(2, '0');
+  $('aeDate').value = n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
+  $('aeH').value = String(n.getHours()); $('aeM').value = String(n.getMinutes());
+  $('aeType').value = 'Other'; $('aeWd').value = 'Ahli Credit2'; $('aeDep').value = '';
+  $('aeFee').value = '0'; $('aeOp').value = 'Expenses'; $('aeDet').value = 'Expense';
+  $('aeCb').value = '0'; $('aeAmt').value = ''; $('aeExtras').value = '';
+  $('aeO1').value = ''; $('aeO2').value = ''; $('aeCbAmt').value = ''; $('aeCbSms').value = '';
+}
+function aeState() {
+  const t = $('aeType').value, op = $('aeOp').value;
+  return {t, wd: t === 'Other',
+    dep: t === 'Incomes' || t === 'Refund' || (t === 'Other' && op === 'Between Acounts'),
+    cb: $('aeCb').value !== '0'};
+}
+function aeRefresh() {
+  const s = aeState(), show = (id, on) => $(id).classList.toggle('hide', !on);
+  show('aeWdBox', s.wd); show('aeOpBox', s.wd); show('aeFeeBox', s.wd);
+  show('aeO1Box', s.wd && $('aeWd').value === 'Other');
+  show('aeDepBox', s.dep); show('aeO2Box', s.dep && $('aeDep').value === 'Other');
+  show('aeCbAmtBox', s.cb); show('aeCbSmsBox', s.cb);
+}
+$('add').addEventListener('change', aeRefresh);
+['aeH', 'aeM'].forEach(id => {
+  const el = $(id);
+  el.addEventListener('focus', () => el.select());
+  el.addEventListener('input', () => {
+    el.value = aeNorm(el.value).replace(/\D/g, '').slice(0, 2);
+    if (id === 'aeH' && el.value.length === 2) $('aeM').focus();
+  });
+});
+['aeAmt', 'aeCbAmt'].forEach(id => $(id).addEventListener('blur', e => { e.target.value = aeNorm(e.target.value); }));
+
+function aeApplySms(r) {
+  const st = $('aeSmsStatus');
+  const notes = (r.notes || []).join(' ');
+  if (!r.type) { st.style.color = 'var(--warn)'; st.textContent = notes; return; }
+  const pick = (id, v) => { const el = $(id); el.value = [...el.options].some(o => o.value === v) ? v : ''; };
+  aeDefaults();
+  $('aeType').value = r.type;
+  if (r.type === 'Other') {
+    pick('aeWd', r.withdrawn || '');
+    if (r.operationType) $('aeOp').value = r.operationType;
+    $('aeFee').value = r.fees || '0';
+  }
+  if (r.type === 'Incomes' || r.type === 'Refund' || r.operationType === 'Between Acounts') pick('aeDep', r.deposited || '');
+  if (r.amount) $('aeAmt').value = r.amount;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(r.date || '')) $('aeDate').value = r.date;
+  if (r.h !== '' && r.m !== '') { $('aeH').value = String(r.h); $('aeM').value = String(r.m); }
+  if (r.details) pick('aeDet', r.details); else if (r.type !== 'Other') $('aeDet').value = '';
+  aeRefresh();
+  st.style.color = notes ? 'var(--warn)' : 'var(--pos)';
+  st.textContent = 'Form filled from the SMS. Check the values, then submit.' + (notes ? ' ' + notes : '');
+}
+let aeT1 = null, aeT2 = null;
+function aeOnSms(delay) {
+  clearTimeout(aeT1);
+  aeT1 = setTimeout(() => {
+    const t = $('aeSms').value.trim();
+    if (!t) { $('aeSmsStatus').textContent = ''; return; }
+    aeApplySms(parseSms(t, new Date()));
+  }, delay);
+}
+function aeOnCbSms(delay) {
+  clearTimeout(aeT2);
+  aeT2 = setTimeout(() => {
+    const t = $('aeCbSms').value.trim(); if (!t) return;
+    const a = cashBackAmount(t);
+    if (a) { $('aeCbAmt').value = a; $('aeCbAmt').classList.remove('invalid'); }
+    else $('aeErr').textContent = 'Cash back amount not found in the SMS. Enter it yourself.';
+  }, delay);
+}
+$('aeSms').addEventListener('input', () => aeOnSms(350));
+$('aeSms').addEventListener('paste', () => aeOnSms(60));
+$('aeCbSms').addEventListener('input', () => aeOnCbSms(350));
+$('aeCbSms').addEventListener('paste', () => aeOnCbSms(60));
+
+async function aePaste(id, after) {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (t) { $(id).value = t; after(0); }
+  } catch (e) {
+    $(id).focus();
+    $('aeSmsStatus').style.color = 'var(--warn)';
+    $('aeSmsStatus').textContent = 'The browser blocked clipboard access here. Long-press the box and choose Paste.';
+  }
+}
+$('aePasteSms').onclick = () => aePaste('aeSms', aeOnSms);
+$('aePasteCb').onclick = () => aePaste('aeCbSms', aeOnCbSms);
+
+function aeReset() {
+  $('aeSms').value = ''; $('aeSmsStatus').textContent = ''; $('aeErr').textContent = '';
+  aeDefaults(); aeRefresh();
+}
+$('aeSave').onclick = () => {
+  const s = aeState(), errs = [];
+  document.querySelectorAll('#add .invalid').forEach(e => e.classList.remove('invalid'));
+  const bad = (id, msg) => { $(id).classList.add('invalid'); errs.push(msg); };
+  if (s.wd && !$('aeWd').value) bad('aeWd', 'Choose the Withdrawn account.');
+  if (s.dep && !$('aeDep').value) bad('aeDep', 'Choose the Deposited account.');
+  const amt = id => {
+    $(id).value = aeNorm($(id).value);
+    const v = $(id).value;
+    if (!/^\d+(\.\d+)?$/.test(v) || +v <= 0) bad(id, 'Enter amounts as a number above 0, like 125.50.');
+  };
+  amt('aeAmt'); if (s.cb) amt('aeCbAmt');
+  if (!$('aeDate').value) bad('aeDate', 'Choose a date.');
+  const hh = $('aeH').value.trim(), mm = $('aeM').value.trim();
+  if (!/^\d{1,2}$/.test(hh) || +hh > 23) bad('aeH', 'Hour must be 0-23.');
+  if (!/^\d{1,2}$/.test(mm) || +mm > 59) bad('aeM', 'Minute must be 0-59.');
+  $('aeErr').textContent = [...new Set(errs)].join(' ');
+  if (errs.length) return;
+
+  const d = {
+    type: s.t,
+    withdrawn: s.wd ? $('aeWd').value : '',
+    other1: s.wd && $('aeWd').value === 'Other' ? $('aeO1').value.trim() : '',
+    fees: s.wd ? $('aeFee').value : '',
+    operationType: s.wd ? $('aeOp').value : '',
+    deposited: s.dep ? $('aeDep').value : '',
+    other2: s.dep && $('aeDep').value === 'Other' ? $('aeO2').value.trim() : '',
+    amount: $('aeAmt').value, date: $('aeDate').value, h: String(+hh), m: String(+mm),
+    sms: $('aeSms').value.trim(),
+    extras: [$('aeExtras').value.trim(), s.cb ? $('aeCb').value : ''].filter(Boolean).join(' '),
+    details: $('aeDet').value,
+    cbAmount: s.cb ? $('aeCbAmt').value : '',
+    cbSms: s.cb ? $('aeCbSms').value.trim() : ''
+  };
+  $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--mute)'; $('aeMsg').textContent = 'Saving…';
+  google.script.run.withSuccessHandler(res => {
+    const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
+      date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
+      amt2: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
+    r.op2 = normOp(r); rows.push(r);
+    rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
+    renderAll();
+    aeReset();
+    $('aeSave').disabled = false;
+    $('aeMsg').style.color = 'var(--pos)'; $('aeMsg').textContent = 'Saved to the sheet as row ' + res.row + '.';
+  }).withFailureHandler(e => {
+    $('aeSave').disabled = false;
+    $('aeMsg').style.color = 'var(--neg)'; $('aeMsg').textContent = 'Save failed: ' + (e && e.message || e);
+  }).dashAddEntry(d);
+};
+aeDefaults(); aeRefresh();
+
+load();
+</script>
+</body>
+</html>
