@@ -118,8 +118,17 @@ nav button{font-size:inherit}
         <span id="accMsg" style="color:var(--mute)"></span>
       </div>
     </div>
+    <div class="panel">
+      <b>Reconcile an account with the bank</b>
+      <div class="inline" style="margin-top:8px">
+        <label class="f">Account<select id="rcAcc"></select></label>
+        <label class="f">Real balance (bank)<input type="number" step="0.01" id="rcBank"></label>
+        <label class="f">Cash back rows to ignore<input type="text" id="rcIgn" placeholder="e.g. 286"></label>
+      </div>
+      <div id="rcOut" style="margin-top:10px"></div>
+    </div>
     <div class="tablewrap"><table id="acc"></table></div>
-    <p style="color:var(--mute)">Credit = opening + deposited − withdrawn − fees + cash back. Fees and cash back are applied to the Withdrawn account. "Fees (all)" = Fees column + rows with Details "Fees" (those rows are already counted as withdrawals, so Credit is unchanged). Opening balances are saved with the web app.</p>
+    <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (All). Fees (All) = Fees column + withdrawn rows with Details "Fees". Cash back (All) = 2nd Amount column (col R) + deposited rows with Details "Cash Back". Fees and col R cash back belong to the Withdrawn account.</p>
   </section>
 
   <section id="catview" hidden>
@@ -250,19 +259,28 @@ const cats = () => cfg.cats && cfg.cats.length ? cfg.cats : DEFAULT_CATS;
 
 /* ---------- Cash back: separate entries (Details = Cash Back) folded into their main operation ---------- */
 const isCbDet = d => String(d || '').replace(/\s/g, '').toLowerCase() === 'cashback';
+const CB_PCT = [0.007, 0.05, 0.11];                      // the cash back rates of the entry form
 function linkCb() {
-  rows.forEach(r => { r.cbx = r.amt2 || 0; r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
-  const PCT = [0.007, 0.05, 0.11];                       // the cash back rates of the entry form
+  rows.forEach(r => { r.cbx = r.amt2 || 0; r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); r.cbEntries = []; r.cbNote = ''; });
   const day = s => Date.parse((s || '') + 'T00:00:00Z') / 86400000;
+  const byRow = {}; rows.forEach(r => byRow[r.r] = r);
+  const link = (c, hit, note) => { hit.linked = true; hit.cbx += c.amt; hit.cbEntries.push(c.r); c.cbOf = hit.r; c.cbNote = note; };
+  // pass 1: an earlier expense on the same account whose amount x 0.7% / 5% / 11% equals the cash back
   rows.forEach((c, i) => {
-    if (!c.cbIsEntry || !c.dep) return;
+    if (!c.cbIsEntry || !c.dep || c.amt <= 0) return;      // negative entries are cancelled cash backs
     const ok = r => r !== c && !r.cbIsEntry && !r.linked && r.op2 === 'Expenses' && r.wd === c.dep && r.date && c.date &&
       day(r.date) <= day(c.date) && day(c.date) - day(r.date) <= 45 &&
-      PCT.some(p => Math.abs(r.amt * p - c.amt) <= 0.03);
+      CB_PCT.some(p => Math.abs(r.amt * p - c.amt) <= 0.03);
     let hit = null;
     for (let j = i - 1; j >= 0 && !hit; j--) { if (day(c.date) - day(rows[j].date) > 45) break; if (ok(rows[j])) hit = rows[j]; }
     for (let j = i + 1; j < rows.length && !hit; j++) { if (rows[j].date !== c.date) break; if (ok(rows[j])) hit = rows[j]; }
-    if (hit) { hit.linked = true; hit.cbx += c.amt; c.cbOf = hit.r; }
+    if (hit) link(c, hit, 'by rate');
+  });
+  // pass 2: still unmatched -> the expense in the row right before it in the Responses sheet
+  rows.forEach(c => {
+    if (!c.cbIsEntry || c.cbOf || c.amt <= 0) return;
+    const hit = byRow[c.r - 1];
+    if (hit && !hit.cbIsEntry && !hit.linked && hit.op2 === 'Expenses') link(c, hit, 'by previous row');
   });
 }
 function refreshAccFilter() { const cur = $('fAcc').value || 'All'; $('fAcc').innerHTML = opt(['All', ...accountNames()], cur); }
@@ -279,7 +297,7 @@ function load() {
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
-  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
+  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || []; cfg.bank = cfg.bank || {}; if (!cfg.cbIgnore) cfg.cbIgnore = [286];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
   // Sheet 2: sorted by action date, then H, then M, then timestamp
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
@@ -353,13 +371,14 @@ function renderRecords() {
 }
 
 /* ---------- Sheet 4: accounts + verification ---------- */
+function acctCredit(a, open) { return open + a.dep + a.cbDep + a.cb - a.out - a.fee - a.feeDet; }
 function calc() {
-  const A = {}, get = n => A[n] || (A[n] = {inn: 0, out: 0, fee: 0, cb: 0, feeDet: 0});
+  const A = {}, get = n => A[n] || (A[n] = {dep: 0, cbDep: 0, out: 0, fee: 0, feeDet: 0, cb: 0});
   const t = {inc: 0, exp: 0, fee: 0, cb: 0}, bad = [];
   (cfg.accounts || []).forEach(get);
   rows.forEach(r => {
-    if (r.dep) get(r.dep).inn += r.amt;
-    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; a.cb += r.amt2; if (r.det === 'Fees') a.feeDet += r.amt; }
+    if (r.dep) { const a = get(r.dep); if (r.cbIsEntry) a.cbDep += r.amt; else a.dep += r.amt; }
+    if (r.wd) { const a = get(r.wd); a.fee += r.fee; a.cb += r.amt2; if (r.det === 'Fees') a.feeDet += r.amt; else a.out += r.amt; }
     if (r.op2 === 'Incomes') t.inc += r.amt; else if (r.op2 === 'Expenses') t.exp += r.amt;
     t.fee += r.fee; t.cb += r.amt2;
     const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || ((r.fee || r.amt2) && !r.wd) || !r.date;
@@ -370,31 +389,79 @@ function calc() {
 function renderAccounts() {
   const {A, t, bad} = calc();
   const names = Object.keys(A).sort();
-  let sumOpen = 0, sumCredit = 0, sumFees = 0;
+  const S = {open: 0, dep: 0, out: 0, fee: 0, feeDet: 0, feeAll: 0, cb: 0, cbDep: 0, cbAll: 0, credit: 0};
+  const c = v => '<td class="n">' + money(v) + '</td>';
   const body = names.map(n => {
-    const a = A[n], open = +cfg.opening[n] || 0, credit = open + a.inn - a.out - a.fee + a.cb;
-    sumOpen += open; sumCredit += credit; sumFees += a.fee + a.feeDet;
-    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td><td class="n">' + money(a.inn) + '</td><td class="n">' + money(a.out) + '</td><td class="n">' + money(a.fee) + '</td><td class="n">' + money(a.cb) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td><td class="n">' + money(a.fee + a.feeDet) + '</td></tr>';
+    const a = A[n], open = +cfg.opening[n] || 0, credit = acctCredit(a, open), feeAll = a.fee + a.feeDet, cbAll = a.cb + a.cbDep;
+    S.open += open; S.dep += a.dep; S.out += a.out; S.fee += a.fee; S.feeDet += a.feeDet; S.feeAll += feeAll; S.cb += a.cb; S.cbDep += a.cbDep; S.cbAll += cbAll; S.credit += credit;
+    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
+      c(a.dep) + c(a.out) + c(a.fee) + c(a.feeDet) + c(feeAll) + c(a.cb) + c(a.cbDep) + c(cbAll) +
+      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
   }).join('');
-  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th><th class="n">Deposited</th><th class="n">Withdrawn</th><th class="n">Fees</th><th class="n">Cash back</th><th class="n">Credit</th><th class="n" title="Fees column + rows with Details = Fees">Fees (all)</th></tr>' + (body || '<tr><td colspan="8" class="empty">No accounts found in Responses.</td></tr>') + '<tr><td><b>Total</b></td><td class="n"><b>' + money(sumOpen) + '</b></td><td colspan="4"></td><td class="n"><b>' + money(sumCredit) + '</b></td><td class="n"><b>' + money(sumFees) + '</b></td></tr>';
+  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th>' +
+    '<th class="n" title="Deposited rows, without Details = Cash Back">Deposited</th>' +
+    '<th class="n" title="Withdrawn rows, without Details = Fees">Withdrawn</th>' +
+    '<th class="n" title="Fees column (2nd part of the entry)">Fees</th>' +
+    '<th class="n" title="Withdrawn rows with Details = Fees">Fees (Withdrawn records)</th>' +
+    '<th class="n">Fees (All)</th>' +
+    '<th class="n" title="2nd Amount column (col R), on the withdrawn account">Cash back</th>' +
+    '<th class="n" title="Deposited rows with Details = Cash Back (old way)">Cash back (Deposited records)</th>' +
+    '<th class="n">Cash back (All)</th><th class="n">Credit</th></tr>' +
+    (body || '<tr><td colspan="11" class="empty">No accounts found in Responses.</td></tr>') +
+    '<tr><td><b>Total</b></td>' + [S.open, S.dep, S.out, S.fee, S.feeDet, S.feeAll, S.cb, S.cbDep, S.cbAll, S.credit].map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '</tr>';
 
-  const expected = sumOpen + t.inc - t.exp - t.fee + t.cb;
-  const diff = Math.round((sumCredit - expected) * 100) / 100;
+  const expected = S.open + t.inc - t.exp - t.fee + t.cb;
+  const diff = Math.round((S.credit - expected) * 100) / 100;
   const todo = rows.filter(needsCat);
-  const unCb = rows.filter(r => r.cbIsEntry && !r.cbOf);
+  const ign = new Set(cfg.cbIgnore || []);
+  const neg = rows.filter(r => r.cbIsEntry && r.amt < 0);
+  const unCb = rows.filter(r => r.cbIsEntry && r.amt > 0 && !r.cbOf && !ign.has(r.r));
+  const adj = rows.filter(r => r.cbNote === 'by previous row');
   const checks = [
-    {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + cash back = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
+    {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(S.credit) + ' · opening + incomes − expenses − fees + cash back = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
     {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
-    {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
-  ,
-    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched (no earlier expense on that account with a 0.7% / 5% / 11% cash back): rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked'}
+    {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'},
+    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: (unCb.length ? unCb.length + ' not matched: rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked') + ' · ' + adj.length + ' linked by previous row · ' + neg.length + ' negative (cancelled) skipped · ' + ign.size + ' ignored'}
   ];
-  $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
-  const n = checks.filter(c => !c.ok).length;
+  $('checks').innerHTML = checks.map(k => '<div class="check"><span class="dot ' + (k.ok ? 'ok' : 'bad') + '"></span><div>' + esc(k.t) + '<small>' + esc(k.s) + '</small></div></div>').join('');
+  const n = checks.filter(k => !k.ok).length;
   $('status').className = n ? 'bad' : 'ok';
   $('status').textContent = n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed';
+  renderRecon(A);
 }
 
+/* ---------- Reconcile one account against the real bank balance ---------- */
+function renderRecon(A) {
+  const names = Object.keys(A).sort(), sel = $('rcAcc');
+  const cur = sel.value || (names.includes('Ahli Credit2') ? 'Ahli Credit2' : names[0]);
+  sel.innerHTML = opt(names, cur); sel.value = cur;
+  if (document.activeElement !== $('rcBank')) $('rcBank').value = cfg.bank[cur] != null ? cfg.bank[cur] : '';
+  if (document.activeElement !== $('rcIgn')) $('rcIgn').value = (cfg.cbIgnore || []).join(', ');
+  const a = A[cur], out = $('rcOut'); if (!a) { out.innerHTML = ''; return; }
+  const credit = acctCredit(a, +cfg.opening[cur] || 0), bank = cfg.bank[cur];
+  if (bank == null || bank === '') { out.innerHTML = 'Sheet credit <b>' + money(credit) + '</b>. Enter the real balance to find the gap.'; return; }
+  const diff = Math.round((credit - bank) * 100) / 100, ad = Math.abs(diff);
+  if (!diff) { out.innerHTML = '<b style="color:var(--pos)">Matches the bank: ' + money(credit) + '</b>'; return; }
+  const sus = [], add = (r, why) => sus.push({r, why});
+  const mine = rows.filter(r => r.wd === cur || r.dep === cur), seen = {};
+  mine.forEach(r => {
+    [['amount', r.amt], ['fee', r.fee], ['cash back (col R)', r.amt2]].forEach(([k, v]) => {
+      if (!v) return;
+      if (Math.abs(Math.abs(v) - ad) < 0.006) add(r, k + ' ' + money(v) + ' = the gap');
+      else if (Math.abs(Math.abs(v) - ad / 2) < 0.006) add(r, k + ' ' + money(v) + ' = half the gap (a row counted in the wrong direction?)');
+    });
+    if (r.wd === cur && r.amt2 > 0 && r.cbEntries.length) add(r, 'cash back in col R (' + money(r.amt2) + ') and also as income entry row ' + r.cbEntries.join(', ') + ' (counted twice?)');
+    if (r.wd === cur && r.amt2 > 0 && r.amt > 0 && !CB_PCT.some(p => Math.abs(r.amt * p - r.amt2) <= 0.02)) add(r, 'cash back ' + money(r.amt2) + ' is not 0.7% / 5% / 11% of ' + money(r.amt));
+    if (r.wd === cur && r.fee && ![0.58, 1.15, 5.75].some(f => Math.abs(f - r.fee) < 0.001)) add(r, 'unusual fee ' + money(r.fee));
+    const key = [r.date, r.h, r.m, r.amt, r.wd, r.dep, r.det].join('|');
+    if (seen[key]) add(r, 'same date, time, amount and accounts as row ' + seen[key]); else seen[key] = r.r;
+  });
+  const head = '<p>Sheet credit <b>' + money(credit) + '</b> · bank <b>' + money(bank) + '</b> · the sheet is <b style="color:var(--neg)">' + money(ad) + ' ' + (diff > 0 ? 'higher' : 'lower') + '</b>' +
+    (diff > 0 ? ' (an income or cash back counted too much, or an expense/fee missing)' : ' (an expense or fee counted too much, or an income missing)') + '.</p>';
+  out.innerHTML = head + (sus.length
+    ? '<div class="tablewrap"><table><tr><th>Row</th><th>Date</th><th class="n">Amount</th><th>Why it is suspicious</th></tr>' + sus.slice(0, 40).map(x => '<tr><td>' + x.r.r + '</td><td>' + esc(x.r.date) + '</td><td class="n">' + money(x.r.amt) + '</td><td>' + esc(x.why) + '</td></tr>').join('') + '</table></div>'
+    : '<p style="color:var(--mute)">No row matches the gap or looks like a duplicate. ' + mine.length + ' rows touch this account; check the opening balance and any row dated after the bank balance you read.</p>');
+}
 
 /* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
 const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
@@ -489,6 +556,10 @@ $('acc').onchange = e => {
   renderAccounts();
   clearTimeout(t0); t0 = setTimeout(() => google.script.run.dashSaveCfg(JSON.stringify(cfg)), 600);
 };
+const saveCfgSoon = () => { clearTimeout(t0); t0 = setTimeout(() => google.script.run.dashSaveCfg(JSON.stringify(cfg)), 600); };
+$('rcAcc').onchange = renderAccounts;
+$('rcBank').onchange = () => { cfg.bank[$('rcAcc').value] = $('rcBank').value === '' ? null : parseFloat($('rcBank').value); renderAccounts(); saveCfgSoon(); };
+$('rcIgn').onchange = () => { cfg.cbIgnore = $('rcIgn').value.split(/[^\d]+/).filter(Boolean).map(Number); renderAccounts(); saveCfgSoon(); };
 $('ctbl').onchange = e => {
   const rn = +e.target.dataset.r; if (!rn || !e.target.dataset.k) return;
   setPend(rn, e.target.dataset.k, e.target.value);
