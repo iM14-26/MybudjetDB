@@ -59,6 +59,9 @@ tr.todo td:first-child{box-shadow:inset 3px 0 var(--warn)}
 td input[type=number]{width:120px;text-align:right}
 textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;width:100%;resize:vertical}
 .hide{display:none!important}
+td.acc{cursor:pointer}
+td.acc:hover{text-decoration:underline}
+nav button{font-size:inherit}
 .invalid{border-color:var(--neg)!important;background:#fbe6e2!important}
 </style>
 </head>
@@ -73,6 +76,7 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
 <nav id="tabs">
   <button data-t="records" class="on">Records</button>
   <button data-t="accounts">Accounts &amp; verification</button>
+  <button data-t="catview">Categories</button>
   <button data-t="cats">Categorize</button>
   <button data-t="add">Add entry</button>
 </nav>
@@ -86,6 +90,7 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
         <label class="f">Operation<select id="fOp"></select></label>
         <label class="f">Details<select id="fDet"></select></label>
         <label class="f">Salary period<select id="fSal"></select></label>
+        <label class="f">Account (withdrawn or deposited)<select id="fAcc"></select></label>
         <label class="f">Category<select id="fCat"></select></label>
         <label class="f">Search (SMS, extras, details)<input type="search" id="fQ"></label>
       </div>
@@ -95,6 +100,7 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
       <div class="chips" id="chipsD"></div>
     </div>
     <div class="summary" id="sum"></div>
+    <label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--mute)"><input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)</label>
     <div class="tablewrap"><table id="tbl"></table></div>
     <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
   </section>
@@ -104,8 +110,23 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
       <b>Verification</b>
       <div id="checks"></div>
     </div>
+    <div class="panel">
+      <div class="inline">
+        <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
+        <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
+        <button class="btn alt" id="addAcc">Add account</button>
+        <span id="accMsg" style="color:var(--mute)"></span>
+      </div>
+    </div>
     <div class="tablewrap"><table id="acc"></table></div>
-    <p style="color:var(--mute)">Credit = opening + deposited − withdrawn − fees + cash back. Fees and cash back are applied to the Withdrawn account. Opening balances are saved with the web app.</p>
+    <p style="color:var(--mute)">Credit = opening + deposited − withdrawn − fees + cash back. Fees and cash back are applied to the Withdrawn account. "Fees (all)" = Fees column + rows with Details "Fees" (those rows are already counted as withdrawals, so Credit is unchanged). Opening balances are saved with the web app.</p>
+  </section>
+
+  <section id="catview" hidden>
+    <nav id="catTabs" style="padding:0;margin-bottom:12px;border:1px solid var(--rule);border-radius:6px"></nav>
+    <div class="summary" id="catSum"></div>
+    <div class="chips" id="subTabs" style="margin:0 0 12px"></div>
+    <div class="tablewrap"><table id="cvTbl"></table></div>
   </section>
 
   <section id="cats" hidden>
@@ -167,7 +188,7 @@ textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--ru
 <script>
 /* ---------- Backend connection (GitHub Pages -> Apps Script web app) ---------- */
 // Paste your Apps Script web app URL here (ends with /exec). It is safe to commit; the token is not stored in this file.
-const API_URL = 'https://script.google.com/macros/s/AKfycbwehuPHKbGyLzI7v3gee_r91UCXw58vYrsf1TdxrHMx8VO7jtRIX_DNnEpJOBwoxQk5IQ/exec';
+const API_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
 
 async function apiCall(fn, args) {
   if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) throw new Error('Set API_URL at the top of the script in index.html.');
@@ -212,7 +233,7 @@ const PERIODS = SALARY.map((s, i) => {
   return {label: s + '  →  ' + end.split('-').reverse().join('/'), start, end};
 });
 
-let rows = [], cfg = {}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 200;
+let rows = [], cfg = {}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 200, catTab = '', subTab = '*';
 
 function normOp(r) {
   const o = (r.op || '').toLowerCase();
@@ -226,6 +247,31 @@ const catOf = r => r.cat || (AUTO.includes(r.det) ? r.det : '');
 const needsCat = r => !r.cat && !AUTO.includes(r.det) && r.op2 !== 'Between Acounts' && r.det !== 'Betweens';
 const cats = () => cfg.cats && cfg.cats.length ? cfg.cats : DEFAULT_CATS;
 
+
+/* ---------- Cash back: separate entries (Details = Cash Back) folded into their main operation ---------- */
+const isCbDet = d => String(d || '').replace(/\s/g, '').toLowerCase() === 'cashback';
+function linkCb() {
+  rows.forEach(r => { r.cbx = r.amt2 || 0; r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
+  const PCT = [0.007, 0.05, 0.11];                       // the cash back rates of the entry form
+  const day = s => Date.parse((s || '') + 'T00:00:00Z') / 86400000;
+  rows.forEach((c, i) => {
+    if (!c.cbIsEntry || !c.dep) return;
+    const ok = r => r !== c && !r.cbIsEntry && !r.linked && r.op2 === 'Expenses' && r.wd === c.dep && r.date && c.date &&
+      day(r.date) <= day(c.date) && day(c.date) - day(r.date) <= 45 &&
+      PCT.some(p => Math.abs(r.amt * p - c.amt) <= 0.03);
+    let hit = null;
+    for (let j = i - 1; j >= 0 && !hit; j--) { if (day(c.date) - day(rows[j].date) > 45) break; if (ok(rows[j])) hit = rows[j]; }
+    for (let j = i + 1; j < rows.length && !hit; j++) { if (rows[j].date !== c.date) break; if (ok(rows[j])) hit = rows[j]; }
+    if (hit) { hit.linked = true; hit.cbx += c.amt; c.cbOf = hit.r; }
+  });
+}
+function refreshAccFilter() { const cur = $('fAcc').value || 'All'; $('fAcc').innerHTML = opt(['All', ...accountNames()], cur); }
+function accountNames() {
+  const s = new Set(cfg.accounts || []);
+  rows.forEach(r => { if (r.wd) s.add(r.wd); if (r.dep) s.add(r.dep); });
+  return [...s].sort();
+}
+
 /* ---------- load ---------- */
 function load() {
   $('loading').hidden = false; $('err').style.display = 'none';
@@ -233,10 +279,11 @@ function load() {
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
-  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {};
+  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
   // Sheet 2: sorted by action date, then H, then M, then timestamp
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
+  linkCb(); aeRefillAccounts();
   pend = {};
   $('loading').hidden = true;
   if (d.missing && d.missing.length) {
@@ -246,12 +293,13 @@ function init(d) {
   buildFilters(); renderAll();
   showTab(document.querySelector('#tabs .on').dataset.t);
 }
-function renderAll() { renderRecords(); renderAccounts(); renderCats(); }
+function renderAll() { renderRecords(); renderAccounts(); renderCats(); renderCatView(); }
 
 /* ---------- Sheet 3: filter ---------- */
 function opt(list, sel) { return list.map(x => '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>').join(''); }
 function buildFilters() {
   $('fOp').innerHTML = opt(OPS);
+  { const cur = $('fAcc').value || 'All'; $('fAcc').innerHTML = opt(['All', ...accountNames()], cur); }
   $('fDet').innerHTML = opt(['All', ...AUTO, ...MANUAL]);
   $('fSal').innerHTML = '<option value="">All dates</option>' + PERIODS.map((p, i) => '<option value="' + i + '">' + esc(p.label) + '</option>').join('');
   $('fCat').innerHTML = opt(['All', ...AUTO, ...cats()]);
@@ -263,10 +311,11 @@ function personHit(r, name) {
   return re.test((r.ex || '').toUpperCase());
 }
 function filtered() {
-  const op = $('fOp').value, det = $('fDet').value, cat = $('fCat').value, q = $('fQ').value.trim().toLowerCase();
+  const acc = $('fAcc').value || 'All', op = $('fOp').value, det = $('fDet').value, cat = $('fCat').value, q = $('fQ').value.trim().toLowerCase();
   const p = $('fSal').value === '' ? null : PERIODS[+$('fSal').value];
   return rows.filter(r => {
     if (op !== 'All' && r.op2 !== op) return false;
+    if (acc !== 'All' && r.wd !== acc && r.dep !== acc) return false;
     if (det !== 'All' && r.det !== det) return false;
     if (cat !== 'All' && catOf(r) !== cat) return false;
     if (p && !(r.date >= p.start && r.date <= p.end)) return false;
@@ -281,30 +330,36 @@ function filtered() {
 }
 function renderRecords() {
   const f = filtered();
+  const fold = $('foldCb').checked && $('fDet').value !== 'Cash Back' && !chipD.has('Cash Back');
+  const view = fold ? f.filter(r => !r.cbOf) : f;
+  const cbTot = f.reduce((s, r) => s + (r.cbIsEntry ? r.amt : r.amt2), 0);
   const inc = f.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
   const exp = f.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
   const btw = f.filter(r => r.op2 === 'Between Acounts').reduce((s, r) => s + r.amt, 0);
-  const fee = f.reduce((s, r) => s + r.fee, 0);
-  $('sum').innerHTML = '<span>Rows <b>' + f.length + '</b></span><span>Incomes <b>' + money(inc) + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Between accounts <b>' + money(btw) + '</b></span><span>Fees <b>' + money(fee) + '</b></span><span>Net <b>' + money(inc - exp - fee) + '</b></span>';
+  const feeCol = f.reduce((s, r) => s + r.fee, 0);
+  const feeDet = f.filter(r => r.det === 'Fees').reduce((s, r) => s + r.amt, 0);
+  const fee = feeCol + feeDet;   // Fees column + main entries whose Details = "Fees"
+  $('sum').innerHTML = '<span>Rows <b>' + view.length + '</b>' + (view.length !== f.length ? ' (+' + (f.length - view.length) + ' cash back folded)' : '') + '</span><span>Incomes <b>' + money(inc) + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Between accounts <b>' + money(btw) + '</b></span><span title="Fees column + rows with Details = Fees">Fees <b>' + money(fee) + '</b></span><span>Cash back <b>' + money(cbTot) + '</b></span><span>Net <b>' + money(inc - exp - feeCol) + '</b></span>';
   const hasUrl = rows.some(r => r.url);
-  const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
-  if (!f.length) { $('tbl').innerHTML = head + '<tr><td colspan="13" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
-  const body = f.slice(0, shown).map(r => {
+  const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
+  if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="14" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
+  const body = view.slice(0, shown).map(r => {
     const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
     const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
-    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd) + '</td><td>' + esc(r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td class="n">' + (r.fee ? money(r.fee) : '') + '</td><td>' + esc(r.det) + '</td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<i style="color:var(--warn)">needs category</i>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank">edit</a>' : '') + '</td>' : '') + '</tr>';
+    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td>' + esc(r.op2) + '</td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td class="n">' + (r.fee ? money(r.fee) : '') + '</td><td class="n">' + (r.cbx ? money(r.cbx) : '') + '</td><td>' + esc(r.det) + '</td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<i style="color:var(--warn)">needs category</i>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank">edit</a>' : '') + '</td>' : '') + '</tr>';
   }).join('');
   $('tbl').innerHTML = head + body;
-  $('more').hidden = f.length <= shown; $('more').textContent = 'Show 200 more (' + (f.length - shown) + ' left)';
+  $('more').hidden = view.length <= shown; $('more').textContent = 'Show 200 more (' + (view.length - shown) + ' left)';
 }
 
 /* ---------- Sheet 4: accounts + verification ---------- */
 function calc() {
-  const A = {}, get = n => A[n] || (A[n] = {inn: 0, out: 0, fee: 0, cb: 0});
+  const A = {}, get = n => A[n] || (A[n] = {inn: 0, out: 0, fee: 0, cb: 0, feeDet: 0});
   const t = {inc: 0, exp: 0, fee: 0, cb: 0}, bad = [];
+  (cfg.accounts || []).forEach(get);
   rows.forEach(r => {
     if (r.dep) get(r.dep).inn += r.amt;
-    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; a.cb += r.amt2; }
+    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; a.cb += r.amt2; if (r.det === 'Fees') a.feeDet += r.amt; }
     if (r.op2 === 'Incomes') t.inc += r.amt; else if (r.op2 === 'Expenses') t.exp += r.amt;
     t.fee += r.fee; t.cb += r.amt2;
     const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || ((r.fee || r.amt2) && !r.wd) || !r.date;
@@ -315,27 +370,61 @@ function calc() {
 function renderAccounts() {
   const {A, t, bad} = calc();
   const names = Object.keys(A).sort();
-  let sumOpen = 0, sumCredit = 0;
+  let sumOpen = 0, sumCredit = 0, sumFees = 0;
   const body = names.map(n => {
     const a = A[n], open = +cfg.opening[n] || 0, credit = open + a.inn - a.out - a.fee + a.cb;
-    sumOpen += open; sumCredit += credit;
-    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td><td class="n">' + money(a.inn) + '</td><td class="n">' + money(a.out) + '</td><td class="n">' + money(a.fee) + '</td><td class="n">' + money(a.cb) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
+    sumOpen += open; sumCredit += credit; sumFees += a.fee + a.feeDet;
+    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td><td class="n">' + money(a.inn) + '</td><td class="n">' + money(a.out) + '</td><td class="n">' + money(a.fee) + '</td><td class="n">' + money(a.cb) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td><td class="n">' + money(a.fee + a.feeDet) + '</td></tr>';
   }).join('');
-  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th><th class="n">Deposited</th><th class="n">Withdrawn</th><th class="n">Fees</th><th class="n">Cash back</th><th class="n">Credit</th></tr>' + (body || '<tr><td colspan="7" class="empty">No accounts found in Responses.</td></tr>') + '<tr><td><b>Total</b></td><td class="n"><b>' + money(sumOpen) + '</b></td><td colspan="4"></td><td class="n"><b>' + money(sumCredit) + '</b></td></tr>';
+  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th><th class="n">Deposited</th><th class="n">Withdrawn</th><th class="n">Fees</th><th class="n">Cash back</th><th class="n">Credit</th><th class="n" title="Fees column + rows with Details = Fees">Fees (all)</th></tr>' + (body || '<tr><td colspan="8" class="empty">No accounts found in Responses.</td></tr>') + '<tr><td><b>Total</b></td><td class="n"><b>' + money(sumOpen) + '</b></td><td colspan="4"></td><td class="n"><b>' + money(sumCredit) + '</b></td><td class="n"><b>' + money(sumFees) + '</b></td></tr>';
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cb;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
   const todo = rows.filter(needsCat);
+  const unCb = rows.filter(r => r.cbIsEntry && !r.cbOf);
   const checks = [
     {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + cash back = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
     {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
     {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
+  ,
+    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched (no earlier expense on that account with a 0.7% / 5% / 11% cash back): rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked'}
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
   const n = checks.filter(c => !c.ok).length;
   $('status').className = n ? 'bad' : 'ok';
   $('status').textContent = n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed';
 }
+
+
+/* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
+const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
+function renderCatView() {
+  const groups = {};
+  rows.forEach(r => { if (r.op2 === 'Between Acounts') return; const c = rowCat(r); if (c) (groups[c] = groups[c] || []).push(r); });
+  const order = [...cats(), ...AUTO, ...Object.keys(groups).filter(k => !cats().includes(k) && !AUTO.includes(k) && k !== 'Uncategorized'), 'Uncategorized'];
+  const names = order.filter((c, i) => groups[c] && order.indexOf(c) === i);
+  if (!names.length) {
+    $('catTabs').innerHTML = ''; $('catSum').innerHTML = ''; $('subTabs').innerHTML = '';
+    $('cvTbl').innerHTML = '<tr><td class="empty">No categorized rows yet.</td></tr>'; return;
+  }
+  if (!names.includes(catTab)) { catTab = names[0]; subTab = '*'; }
+  $('catTabs').innerHTML = names.map(c => '<button data-c="' + esc(c) + '"' + (c === catTab ? ' class="on"' : '') + '>' + esc(c) + ' (' + groups[c].length + ')</button>').join('');
+  const list = groups[catTab], subMap = {};
+  list.forEach(r => (subMap[r.sub || ''] = subMap[r.sub || ''] || []).push(r));
+  if (subTab !== '*' && !(subTab in subMap)) subTab = '*';
+  const subNames = Object.keys(subMap).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
+  $('subTabs').innerHTML = '<button class="chip' + (subTab === '*' ? ' on' : '') + '" data-s="*">All (' + list.length + ')</button>' +
+    subNames.map(s => '<button class="chip' + (subTab === s ? ' on' : '') + '" data-s="' + esc(s) + '">' + esc(s || '(no sub-category)') + ' (' + subMap[s].length + ')</button>').join('');
+  const sel = (subTab === '*' ? list : subMap[subTab]).slice().reverse();
+  const exp = sel.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
+  const inc = sel.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
+  $('catSum').innerHTML = '<span>' + esc(catTab) + (subTab !== '*' ? ' / ' + esc(subTab || '(no sub-category)') : '') + '</span><span>Rows <b>' + sel.length + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Incomes <b>' + money(inc) + '</b></span>';
+  $('cvTbl').innerHTML = '<tr><th>Row</th><th>Date</th><th>Operation</th><th>Account</th><th class="n">Amount</th><th>Details</th><th>Sub-category</th><th>Extras</th></tr>' +
+    sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
+    (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '');
+}
+$('catTabs').onclick = e => { const c = e.target.dataset.c; if (c !== undefined) { catTab = c; subTab = '*'; renderCatView(); } };
+$('subTabs').onclick = e => { const s = e.target.dataset.s; if (s !== undefined) { subTab = s; renderCatView(); } };
 
 /* ---------- Categorize ---------- */
 function renderCats() {
@@ -360,13 +449,15 @@ function setPend(rn, k, v) {
 
 /* ---------- events ---------- */
 function showTab(t) {
-  ['records', 'accounts', 'cats', 'add'].forEach(id => $(id).hidden = id !== t);
+  ['records', 'accounts', 'catview', 'cats', 'add'].forEach(id => $(id).hidden = id !== t);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
 }
 $('tabs').onclick = e => { if (e.target.dataset.t) showTab(e.target.dataset.t); };
 $('status').onclick = () => showTab('accounts');
 $('reload').onclick = load;
-['fOp', 'fDet', 'fSal', 'fCat'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
+$('foldCb').onchange = () => { shown = 200; renderRecords(); };
+$('tbl').onclick = e => { const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); } };
+['fOp', 'fDet', 'fSal', 'fCat', 'fAcc'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
 $('fQ').oninput = () => { shown = 200; renderRecords(); };
 $('more').onclick = () => { shown += 200; renderRecords(); };
 function chipClick(set, id) {
@@ -379,6 +470,18 @@ function chipClick(set, id) {
 chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD');
 $('clrP').onclick = () => { chipP.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
 $('clrD').onclick = () => { chipD.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
+$('addAcc').onclick = () => {
+  const n = $('newAcc').value.trim(), msg = $('accMsg');
+  if (!n) { msg.style.color = 'var(--neg)'; msg.textContent = 'Type the account name first.'; return; }
+  if (accountNames().concat(AE_ACC).some(x => x.toLowerCase() === n.toLowerCase())) { msg.style.color = 'var(--neg)'; msg.textContent = 'That account already exists.'; return; }
+  cfg.accounts.push(n);
+  const o = parseFloat($('newAccOpen').value); if (!isNaN(o)) cfg.opening[n] = o;
+  $('newAcc').value = ''; $('newAccOpen').value = '';
+  msg.style.color = 'var(--mute)'; msg.textContent = 'Saving…';
+  google.script.run.withSuccessHandler(() => { msg.style.color = 'var(--pos)'; msg.textContent = 'Account "' + n + '" added.'; })
+    .withFailureHandler(e => { msg.style.color = 'var(--neg)'; msg.textContent = 'Save failed: ' + (e && e.message || e); }).dashSaveCfg(JSON.stringify(cfg));
+  refreshAccFilter(); aeRefillAccounts(); renderAccounts();
+};
 let t0;
 $('acc').onchange = e => {
   const n = e.target.dataset.acc; if (!n) return;
@@ -573,8 +676,14 @@ function aeFillSel(id, list, ph) {
   $(id).innerHTML = (ph ? '<option value="">' + ph + '</option>' : '') + list.map(v => '<option>' + esc(v) + '</option>').join('');
 }
 aeFillSel('aeType', ['Other', 'Incomes', 'Refund']);
-aeFillSel('aeWd', AE_ACC, 'Choose account…');
-aeFillSel('aeDep', AE_ACC, 'Choose account…');
+function aeAccList() { return [...AE_ACC.filter(a => a !== 'Other'), ...(cfg.accounts || []).filter(a => !AE_ACC.includes(a)), 'Other']; }
+function aeRefillAccounts() {
+  ['aeWd', 'aeDep'].forEach(id => {
+    const cur = $(id).value; aeFillSel(id, aeAccList(), 'Choose account…');
+    if ([...$(id).options].some(o => o.value === cur)) $(id).value = cur;
+  });
+}
+aeRefillAccounts();
 aeFillSel('aeOp', ['Expenses', 'Between Acounts']);
 aeFillSel('aeFee', ['0', '0.58', '1.15', '5.75']);
 aeFillSel('aeCb', ['0', '0.7%', '5%', '11%']);
@@ -715,6 +824,7 @@ $('aeSave').onclick = () => {
       amt2: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
     r.op2 = normOp(r); rows.push(r);
     rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
+    linkCb(); refreshAccFilter();
     renderAll();
     aeReset();
     $('aeSave').disabled = false;
