@@ -119,7 +119,17 @@ nav button{font-size:inherit}
       </div>
     </div>
     <div class="tablewrap"><table id="acc"></table></div>
-    <p style="color:var(--mute)">Credit = opening + deposited − withdrawn − fees + cash back. Fees and cash back are applied to the Withdrawn account. "Fees (all)" = Fees column + rows with Details "Fees" (those rows are already counted as withdrawals, so Credit is unchanged). Opening balances are saved with the web app.</p>
+    <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).
+      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.
+      Cash back = the extra column of withdrawn records; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.
+      Opening balances are saved with the web app.</p>
+    <details class="panel" style="margin-top:14px">
+      <summary style="cursor:pointer"><b>Compare cash back with a column from your sheet</b></summary>
+      <p style="color:var(--mute)">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
+      <div class="inline"><label class="f">First row<input type="number" id="cmpFirst" value="2" style="width:90px"></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
+      <textarea id="cmpData" rows="5" placeholder="Paste the column here..." style="margin-top:8px"></textarea>
+      <div id="cmpOut" style="margin-top:10px"></div>
+    </details>
   </section>
 
   <section id="catview" hidden>
@@ -373,13 +383,31 @@ function calc() {
 function renderAccounts() {
   const {A, t, bad} = calc();
   const names = Object.keys(A).sort();
-  let sumOpen = 0, sumCredit = 0, sumFees = 0, sumDep = 0, sumOut = 0, sumFeeCol = 0, sumCb = 0;
+  const S = {open: 0, dep: 0, out: 0, fd: 0, fc: 0, fa: 0, cx: 0, ce: 0, ca: 0, credit: 0};
+  const KEYS = ['dep', 'out', 'fd', 'fc', 'fa', 'cx', 'ce', 'ca'];
   const body = names.map(n => {
-    const a = A[n], open = +cfg.opening[n] || 0, dep = a.inn - a.cbE, cbA = a.cbE + a.cbX, credit = open + dep - a.out - a.fee + cbA;
-    sumOpen += open; sumCredit += credit; sumFees += a.fee + a.feeDet; sumDep += dep; sumOut += a.out; sumFeeCol += a.fee; sumCb += cbA;
-    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td><td class="n">' + money(dep) + '</td><td class="n">' + money(a.out) + '</td><td class="n">' + money(a.fee) + '</td><td class="n">' + money(cbA) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td><td class="n">' + money(a.fee + a.feeDet) + '</td></tr>';
+    const a = A[n], open = +cfg.opening[n] || 0;
+    const v = {
+      dep: a.inn - a.cbE,            // Deposited, without its cash back (Details = Cash Back entries)
+      out: a.out - a.feeDet,         // Withdrawn, without its fees (Details = Fees rows)
+      fd: a.feeDet,                  // Fees: main entries with Details = Fees
+      fc: a.fee,                     // Fees (Withdrawn records): the Fees column
+      fa: a.fee + a.feeDet,          // Fees (All)
+      cx: a.cbX,                     // Cash back: extra column of the withdrawn records
+      ce: a.cbE,                     // Cash back (Deposited records): Details = Cash Back entries
+      ca: a.cbE + a.cbX              // Cash back (all)
+    };
+    const credit = open + v.dep - v.out - v.fa + v.ca;
+    S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
+    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
+      KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
+      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
   }).join('');
-  $('acc').innerHTML = '<tr><th>Account</th><th class="n">Opening</th><th class="n" title="Excluding Cash Back entries (shown in the Cash back column)">Deposited</th><th class="n">Withdrawn</th><th class="n">Fees</th><th class="n">Cash back</th><th class="n">Credit</th><th class="n" title="Fees column + rows with Details = Fees">Fees (all)</th></tr>' + (body || '<tr><td colspan="8" class="empty">No accounts found in Responses.</td></tr>') + '<tr><td><b>Total</b></td><td class="n"><b>' + money(sumOpen) + '</b></td><td class="n"><b>' + money(sumDep) + '</b></td><td class="n"><b>' + money(sumOut) + '</b></td><td class="n"><b>' + money(sumFeeCol) + '</b></td><td class="n"><b>' + money(sumCb) + '</b></td><td class="n"><b>' + money(sumCredit) + '</b></td><td class="n"><b>' + money(sumFees) + '</b></td></tr>';
+  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['Credit', 'n']];
+  $('acc').innerHTML = '<tr>' + TH.map(c => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr>' +
+    (body || '<tr><td colspan="11" class="empty">No accounts found in Responses.</td></tr>') +
+    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td></tr>';
+  const sumOpen = S.open, sumCredit = S.credit;
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
@@ -399,6 +427,36 @@ function renderAccounts() {
   $('status').textContent = n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed';
 }
 
+
+
+/* ---------- Compare cash back with a pasted sheet column ---------- */
+$('cmpRun').onclick = () => {
+  const first = parseInt($('cmpFirst').value, 10) || 2;
+  const sheet = {}; let sTot = 0;
+  $('cmpData').value.replace(/\r/g, '').split('\n').forEach((ln, i) => {
+    const v = parseFloat(String(ln).replace(/,/g, '').replace(/[^\d.\-]/g, ''));
+    if (!isNaN(v)) { sheet[first + i] = v; sTot += v; }
+  });
+  const dash = {}; let dTot = 0;
+  rows.forEach(r => {                                   // main rows carry their extra column + linked entry; unlinked entries carry their own amount
+    const v = r.cbIsEntry ? (r.cbOf ? 0 : r.amt) : r.cbx;
+    if (v) { dash[r.r] = v; dTot += v; }
+  });
+  const byRow = {}; rows.forEach(r => byRow[r.r] = r);
+  const diffs = [];
+  new Set([...Object.keys(sheet), ...Object.keys(dash)]).forEach(k => {
+    const a = sheet[k] || 0, b = dash[k] || 0;
+    if (Math.abs(a - b) > 0.004) diffs.push({r: +k, a, b});
+  });
+  diffs.sort((x, y) => x.r - y.r);
+  const net = Math.round((dTot - sTot) * 100) / 100;
+  $('cmpOut').innerHTML = '<div class="summary"><span>Sheet column <b>' + money(sTot) + '</b></span><span>Dashboard <b>' + money(dTot) + '</b></span><span>Difference <b>' + money(net) + '</b></span><span>Rows that differ <b>' + diffs.length + '</b></span></div>' +
+    (diffs.length ? '<div class="tablewrap"><table><tr><th>Row</th><th>Date</th><th>Details</th><th>Account</th><th class="n">Sheet</th><th class="n">Dashboard</th><th class="n">Difference</th></tr>' +
+      diffs.slice(0, 60).map(d => { const r = byRow[d.r] || {}; return '<tr><td>' + d.r + '</td><td>' + esc(r.date || '') + '</td><td>' + esc(r.det || '') + '</td><td>' + esc(r.wd || r.dep || '') + '</td><td class="n">' + money(d.a) + '</td><td class="n">' + money(d.b) + '</td><td class="n">' + money(d.b - d.a) + '</td></tr>'; }).join('') +
+      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--mute)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
+      '<p style="color:var(--mute)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
+      : '<p style="color:var(--pos)">Every row matches.</p>');
+};
 
 /* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
 const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
