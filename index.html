@@ -490,15 +490,13 @@ function renderAccounts() {
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
   const todo = rows.filter(needsCat);
-  const unCb = rows.filter(r => r.cbIsEntry && !r.cbOf);
   const oldBackend = rows.length > 0 && rows.every(r => r.cbp === undefined);
   const checks = [
     {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + extra-column cash back (cash back entries are already inside incomes) = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
     {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
     {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
   ,
-    {ok: !oldBackend, t: 'Cash back total ' + money(t.cb), s: oldBackend ? 'The backend is still the old version (column P is not being read). Paste the new Code.gs and deploy a new version.' : 'Separate Cash Back entries ' + money(t.cbE) + ' + column ' + (cbInfo ? cbInfo.letter + (cbInfo.header ? ' ("' + esc(cbInfo.header) + '")' : '') : 'P') + ' = SUM(' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ') ' + money(t.cbX)},
-    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched (no earlier expense on that account with a 0.7% / 5% / 11% cash back): rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked'}
+    {ok: !oldBackend, t: 'Cash back total ' + money(t.cb), s: oldBackend ? 'The backend is still the old version (column P is not being read). Paste the new Code.gs and deploy a new version.' : 'Separate Cash Back entries ' + money(t.cbE) + ' + column ' + (cbInfo ? cbInfo.letter + (cbInfo.header ? ' ("' + esc(cbInfo.header) + '")' : '') : 'P') + ' = SUM(' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ') ' + money(t.cbX)}
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
   const n = checks.filter(c => !c.ok).length;
