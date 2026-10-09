@@ -262,8 +262,10 @@ const cats = () => cfg.cats && cfg.cats.length ? cfg.cats : DEFAULT_CATS;
 
 /* ---------- Cash back: separate entries (Details = Cash Back) folded into their main operation ---------- */
 const isCbDet = d => String(d || '').replace(/\s/g, '').toLowerCase() === 'cashback';
+const cbp = r => (r.cbp !== undefined ? r.cbp : r.amt2) || 0;   // extra cash back = sheet column P (falls back to the 2nd Amount column)
+let cbInfo = null;
 function linkCb() {
-  rows.forEach(r => { r.cbx = r.amt2 || 0; r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
+  rows.forEach(r => { r.cbx = cbp(r); r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
   const PCT = [0.007, 0.05, 0.11];                       // the cash back rates of the entry form
   const day = s => Date.parse((s || '') + 'T00:00:00Z') / 86400000;
   rows.forEach((c, i) => {
@@ -291,6 +293,7 @@ function load() {
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
+  cbInfo = d.cbCol || null;
   cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
   // Sheet 2: sorted by action date, then H, then M, then timestamp
@@ -344,7 +347,7 @@ function renderRecords() {
   const f = filtered();
   const fold = $('foldCb').checked && $('fDet').value !== 'Cash Back' && !chipD.has('Cash Back');
   const view = (fold ? f.filter(r => !r.cbOf) : f).slice().reverse();   // newest first
-  const cbTot = f.reduce((s, r) => s + (r.cbIsEntry ? r.amt : r.amt2), 0);
+  const cbTot = f.reduce((s, r) => s + (r.cbIsEntry ? r.amt : cbp(r)), 0);
   const inc = f.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
   const exp = f.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
   const btw = f.filter(r => r.op2 === 'Between Acounts').reduce((s, r) => s + r.amt, 0);
@@ -372,11 +375,11 @@ function calc() {
   rows.forEach(r => {
     const isE = isCbDet(r.det);   // a separate Cash Back entry: its amount is the cash back, its extra column is ignored (same rule as the Records tab)
     if (r.dep) { const a = get(r.dep); a.inn += r.amt; if (isE) a.cbE += r.amt; }
-    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; if (!isE) a.cbX += r.amt2; if (r.det === 'Fees') a.feeDet += r.amt; }
+    if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; if (!isE) a.cbX += cbp(r); if (r.det === 'Fees') a.feeDet += r.amt; }
     if (r.op2 === 'Incomes') t.inc += r.amt; else if (r.op2 === 'Expenses') t.exp += r.amt;
     t.fee += r.fee;
-    if (isE) { t.cbE += r.amt; if (r.amt2) t.ign.push(r); } else t.cbX += r.amt2;
-    const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || ((r.fee || r.amt2) && !r.wd) || !r.date;
+    if (isE) { t.cbE += r.amt; if (cbp(r)) t.ign.push(r); } else t.cbX += cbp(r);
+    const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || ((r.fee || cbp(r)) && !r.wd) || !r.date;
     if (miss) bad.push(r);
   });
   t.cb = t.cbE + t.cbX;
@@ -420,7 +423,7 @@ function renderAccounts() {
     {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
     {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
   ,
-    {ok: t.ign.length === 0, t: 'Cash back total ' + money(t.cb), s: 'Separate Cash Back entries ' + money(t.cbE) + ' + extra column ' + money(t.cbX) + (t.ign.length ? ' · ' + t.ign.length + ' Cash Back entr' + (t.ign.length > 1 ? 'ies' : 'y') + ' also have an extra-column amount (' + money(t.ign.reduce((s, r) => s + r.amt2, 0)) + '), ignored: rows ' + t.ign.slice(0, 12).map(r => r.r).join(', ') : '')},
+    {ok: t.ign.length === 0, t: 'Cash back total ' + money(t.cb), s: 'Separate Cash Back entries ' + money(t.cbE) + ' + extra column ' + (cbInfo ? cbInfo.letter + (cbInfo.header ? ' ("' + esc(cbInfo.header) + '")' : '') + ' ' : '') + money(t.cbX) + (t.ign.length ? ' · ' + t.ign.length + ' Cash Back entr' + (t.ign.length > 1 ? 'ies' : 'y') + ' also have an extra-column amount (' + money(t.ign.reduce((s, r) => s + cbp(r), 0)) + '), ignored: rows ' + t.ign.slice(0, 12).map(r => r.r).join(', ') : '')},
     {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched (no earlier expense on that account with a 0.7% / 5% / 11% cash back): rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked'}
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
@@ -912,7 +915,7 @@ $('aeSave').onclick = () => {
   google.script.run.withSuccessHandler(res => {
     const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
       date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
-      amt2: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
+      amt2: +d.cbAmount || 0, cbp: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
     r.op2 = normOp(r); rows.push(r);
     rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
     linkCb(); refreshAccFilter();
