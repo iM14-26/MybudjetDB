@@ -202,18 +202,38 @@ nav button{font-size:inherit}
 // Paste your Apps Script web app URL here (ends with /exec). It is safe to commit; the token is not stored in this file.
 const API_URL = 'https://script.google.com/macros/s/AKfycbwehuPHKbGyLzI7v3gee_r91UCXw58vYrsf1TdxrHMx8VO7jtRIX_DNnEpJOBwoxQk5IQ/exec';
 
+const RETRY_FNS = /^(dashGet|dashSaveCfg)/;              // reads/saves of settings are safe to repeat; entry submits are not
 async function apiCall(fn, args) {
   if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) throw new Error('Set API_URL at the top of the script in index.html.');
   let token = localStorage.getItem('mb_token');
   if (!token) { token = prompt('Access token (the API_TOKEN you set in Apps Script):'); if (!token) throw new Error('Access token required.'); localStorage.setItem('mb_token', token.trim()); token = token.trim(); }
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'},   // avoids a CORS preflight, which Apps Script cannot answer
-    body: JSON.stringify({fn: fn, args: args, token: token})
-  });
-  let j; try { j = await res.json(); } catch (e) { throw new Error('Bad response from the backend (check the deployment access is "Anyone").'); }
-  if (!j.ok) { if (j.error === 'unauthorized') localStorage.removeItem('mb_token'); throw new Error(j.error === 'unauthorized' ? 'Wrong access token. Reload and enter it again.' : j.error); }
-  return j.data;
+  const tries = RETRY_FNS.test(fn) ? 3 : 1;
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    if (i) await new Promise(r => setTimeout(r, 1200 * i));
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},   // avoids a CORS preflight, which Apps Script cannot answer
+        body: JSON.stringify({fn: fn, args: args, token: token})
+      });
+      const txt = await res.text();
+      let j; try { j = JSON.parse(txt); } catch (e) {
+        lastErr = new Error(/accounts\.google\.com|Sign in/i.test(txt)
+          ? 'The backend asks for a Google sign-in: set the deployment access to "Anyone".'
+          : 'The backend returned a web page instead of data (HTTP ' + res.status + '). Apps Script was probably busy or timed out; press Reload.');
+        continue;
+      }
+      if (!j || !j.ok) {
+        if (j && j.error === 'unauthorized') localStorage.removeItem('mb_token');
+        const err = new Error(j && j.error === 'unauthorized' ? 'Wrong access token. Reload and enter it again.' : ((j && j.error) || 'The backend reported an error.'));
+        err.final = true; throw err;
+      }
+      if (j.data === undefined && /^dashGet/.test(fn)) { lastErr = new Error('The backend sent an empty reply. Press Reload.'); continue; }
+      return j.data;
+    } catch (e) { if (e.final) throw e; lastErr = e; }
+  }
+  throw lastErr;
 }
 // Keeps the rest of the code unchanged: google.script.run.withSuccessHandler(..).withFailureHandler(..).fn(args)
 function makeRunner(ok, fail) {
@@ -294,6 +314,7 @@ function load() {
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
+  if (!d || !Array.isArray(d.rows)) { showErr(new Error('The backend sent an empty reply. Press Reload.')); return; }
   cbInfo = d.cbCol || null;
   cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
