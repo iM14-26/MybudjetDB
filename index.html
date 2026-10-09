@@ -1011,6 +1011,29 @@ $('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prom
 window.addEventListener('appinstalled', () => { $('installBtn').hidden = true; });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
+/* ---------- Install check: open the page with ?pwa at the end of the address ---------- */
+async function pwaCheck() {
+  const out = [], ok = (b, t, x) => out.push((b ? '✅ ' : '❌ ') + t + (x ? '  (' + x + ')' : ''));
+  ok(location.protocol === 'https:', 'Opened over HTTPS', location.origin);
+  ok(window.top === window.self, 'Not inside a frame (Apps Script or preview pages cannot be installed)');
+  ok(matchMedia('(display-mode: standalone)').matches, 'Already running as an installed app');
+  try {
+    const l = document.querySelector('link[rel=manifest]'), r = await fetch(l.href), m = await r.json();
+    ok(r.ok, 'Manifest loads', r.status);
+    ok(!!(m.name || m.short_name) && !!m.start_url && m.display === 'standalone', 'Manifest has name, start_url, display=standalone');
+    for (const ic of m.icons || []) { const ir = await fetch(new URL(ic.src, l.href)); ok(ir.ok, 'Icon ' + ic.sizes + ' ' + (ic.purpose || ''), ir.status); }
+  } catch (e) { ok(false, 'Manifest could not be read', e.message); }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    ok(!!reg, 'Service worker registered', reg ? reg.scope : 'sw.js missing next to index.html?');
+    ok(!!navigator.serviceWorker.controller, 'Service worker controls this page', 'reload once if not');
+  } catch (e) { ok(false, 'Service worker unavailable', e.message); }
+  ok(!!installEvt, 'Chrome offered the install prompt', installEvt ? '' : 'if everything above is OK, use the ⋮ menu → Install app');
+  const box = $('err'); box.style.display = 'block'; box.style.whiteSpace = 'pre-line'; box.style.background = '#fff'; box.style.color = 'var(--text-main)'; box.style.borderColor = 'var(--border)';
+  box.textContent = 'Install check\n' + out.join('\n');
+}
+if (/[?&]pwa/.test(location.search)) setTimeout(pwaCheck, 3000);
+
 load();
 </script>
 </body>
