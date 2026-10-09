@@ -59,6 +59,7 @@ tr.todo td:first-child{box-shadow:inset 3px 0 var(--warn)}
 td input[type=number]{width:120px;text-align:right}
 textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;width:100%;resize:vertical}
 .hide{display:none!important}
+.tsearch{display:block;width:100%;max-width:380px;margin:0 0 10px;padding:7px 10px;border:1px solid var(--rule);border-radius:4px;font:inherit;color:var(--ink);background:#fff}
 td.acc{cursor:pointer}
 td.acc:hover{text-decoration:underline}
 nav button{font-size:inherit}
@@ -92,7 +93,7 @@ nav button{font-size:inherit}
         <label class="f">Salary period<select id="fSal"></select></label>
         <label class="f">Account (withdrawn or deposited)<select id="fAcc"></select></label>
         <label class="f">Category<select id="fCat"></select></label>
-        <label class="f">Search (SMS, extras, details)<input type="search" id="fQ"></label>
+        <label class="f">Search the table (any column)<input type="search" id="fQ" placeholder="words, amount, date, account…"></label>
       </div>
       <div class="group-title">People &amp; extras <button class="link" id="clrP">clear</button></div>
       <div class="chips" id="chipsP"></div>
@@ -106,10 +107,10 @@ nav button{font-size:inherit}
   </section>
 
   <section id="accounts" hidden>
-    <div class="panel">
-      <b>Verification</b>
-      <div id="checks"></div>
-    </div>
+    <details class="panel" id="verif">
+      <summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
+      <div id="checks" style="margin-top:10px"></div>
+    </details>
     <div class="panel">
       <div class="inline">
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
@@ -136,6 +137,7 @@ nav button{font-size:inherit}
     <nav id="catTabs" style="padding:0;margin-bottom:12px;border:1px solid var(--rule);border-radius:6px"></nav>
     <div class="summary" id="catSum"></div>
     <div class="chips" id="subTabs" style="margin:0 0 12px"></div>
+    <input type="search" id="cvQ" class="tsearch" placeholder="Search rows in this category…">
     <div class="tablewrap"><table id="cvTbl"></table></div>
   </section>
 
@@ -321,7 +323,7 @@ function personHit(r, name) {
   return re.test((r.ex || '').toUpperCase());
 }
 function filtered() {
-  const acc = $('fAcc').value || 'All', op = $('fOp').value, det = $('fDet').value, cat = $('fCat').value, q = $('fQ').value.trim().toLowerCase();
+  const acc = $('fAcc').value || 'All', op = $('fOp').value, det = $('fDet').value, cat = $('fCat').value, q = $('fQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const p = $('fSal').value === '' ? null : PERIODS[+$('fSal').value];
   return rows.filter(r => {
     if (op !== 'All' && r.op2 !== op) return false;
@@ -329,7 +331,7 @@ function filtered() {
     if (det !== 'All' && r.det !== det) return false;
     if (cat !== 'All' && catOf(r) !== cat) return false;
     if (p && !(r.date >= p.start && r.date <= p.end)) return false;
-    if (q && !(r.sms + ' ' + r.ex + ' ' + r.det + ' ' + r.sub).toLowerCase().includes(q)) return false;
+    if (q.length) { const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.fee, r.cbx, r.det, r.cat, r.sub, r.ex, r.sms].join(' ').toLowerCase(); if (!q.every(w => s.includes(w))) return false; }
     if (chipP.size || chipD.size) {
       const hitP = [...chipP].some(n => personHit(r, n));
       const hitD = chipD.has(r.det);
@@ -425,9 +427,33 @@ function renderAccounts() {
   const n = checks.filter(c => !c.ok).length;
   $('status').className = n ? 'bad' : 'ok';
   $('status').textContent = n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed';
+  $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
+  $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
 }
 
 
+
+
+/* ---------- Search box for a table (rows are hidden, not removed; re-applied after every re-render) ---------- */
+function tableSearch(tbl, placeholder) {
+  const inp = document.createElement('input');
+  inp.type = 'search'; inp.className = 'tsearch'; inp.placeholder = placeholder || 'Search this table…';
+  const wrap = tbl.parentElement;
+  wrap.parentElement.insertBefore(inp, wrap);
+  const apply = () => {
+    const q = inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    tbl.querySelectorAll('tr').forEach(tr => {
+      if (tr.querySelector('th') || /^total$/i.test((tr.cells[0] && tr.cells[0].textContent || '').trim())) { tr.style.display = ''; return; }
+      const s = (tr.textContent + ' ' + [...tr.querySelectorAll('select')].map(x => x.options[x.selectedIndex] ? x.options[x.selectedIndex].text : '').join(' ')).toLowerCase();
+      tr.style.display = q.every(w => s.includes(w)) ? '' : 'none';
+    });
+  };
+  inp.addEventListener('input', apply);
+  new MutationObserver(apply).observe(tbl, {childList: true});
+  return inp;
+}
+tableSearch($('acc'), 'Search accounts…');
+tableSearch($('ctbl'), 'Search rows to categorize…');
 
 /* ---------- Compare cash back with a pasted sheet column ---------- */
 $('cmpRun').onclick = () => {
@@ -456,6 +482,7 @@ $('cmpRun').onclick = () => {
       '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--mute)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
       '<p style="color:var(--mute)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
       : '<p style="color:var(--pos)">Every row matches.</p>');
+  const ct = $('cmpOut').querySelector('table'); if (ct) tableSearch(ct, 'Search the differing rows…');
 };
 
 /* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
@@ -477,7 +504,8 @@ function renderCatView() {
   const subNames = Object.keys(subMap).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
   $('subTabs').innerHTML = '<button class="chip' + (subTab === '*' ? ' on' : '') + '" data-s="*">All (' + list.length + ')</button>' +
     subNames.map(s => '<button class="chip' + (subTab === s ? ' on' : '') + '" data-s="' + esc(s) + '">' + esc(s || '(no sub-category)') + ' (' + subMap[s].length + ')</button>').join('');
-  const sel = (subTab === '*' ? list : subMap[subTab]).slice().reverse();
+  const cq = $('cvQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const sel = (subTab === '*' ? list : subMap[subTab]).filter(r => { if (!cq.length) return true; const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.det, r.cat, r.sub, r.ex].join(' ').toLowerCase(); return cq.every(w => s.includes(w)); }).slice().reverse();
   const exp = sel.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
   const inc = sel.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
   $('catSum').innerHTML = '<span>' + esc(catTab) + (subTab !== '*' ? ' / ' + esc(subTab || '(no sub-category)') : '') + '</span><span>Rows <b>' + sel.length + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Incomes <b>' + money(inc) + '</b></span>';
@@ -485,6 +513,7 @@ function renderCatView() {
     sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
     (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '');
 }
+$('cvQ').oninput = () => renderCatView();
 $('catTabs').onclick = e => { const c = e.target.dataset.c; if (c !== undefined) { catTab = c; subTab = '*'; renderCatView(); } };
 $('subTabs').onclick = e => { const s = e.target.dataset.s; if (s !== undefined) { subTab = s; renderCatView(); } };
 
