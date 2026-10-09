@@ -292,10 +292,15 @@ function load() {
   google.script.run.withSuccessHandler(init).withFailureHandler(showErr).dashGetData();
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
+
 function init(d) {
-  cbInfo = d.cbCol || null;
+  if (!d) {
+    showErr('No data returned from the backend script.');
+    return;
+  }
+  cbInfo = d.cbCol || { letter: 'P', header: '' };
   cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
-  rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
+  rows = (d.rows || []).map(r => Object.assign(r, {op2: normOp(r)}));
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
   linkCb(); aeRefillAccounts();
   pend = {};
@@ -307,6 +312,7 @@ function init(d) {
   buildFilters(); renderAll();
   showTab(document.querySelector('#tabs .on').dataset.t);
 }
+
 function renderAll() { renderRecords(); renderAccounts(); renderCats(); renderCatView(); }
 
 /* ---------- Sheet 3: filter ---------- */
