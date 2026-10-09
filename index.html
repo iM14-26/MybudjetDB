@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MyBudjet Dashboard</title>
@@ -106,6 +111,7 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
     <div class="brand-text-block"><h1>MyBudjet ledger</h1><span class="brand-sub">Financial Intelligence &amp; Multi-Account Bookkeeping</span></div>
   </div>
   <div class="header-actions">
+    <button class="btn" id="installBtn" hidden>Install app</button>
     <button class="btn alt" id="reload"><span class="material-symbols-outlined" style="font-size:16px">sync</span> Reload data</button>
     <div id="status" title="Open verification"><span class="status-indicator-dot"></span><span>Loading…</span></div>
   </div>
@@ -997,6 +1003,13 @@ $('aeSave').onclick = () => {
   }).dashAddEntry(d);
 };
 aeDefaults(); aeRefresh();
+
+/* ---------- Install as an app (Android Chrome) ---------- */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installBtn').hidden = false; });
+$('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; };
+window.addEventListener('appinstalled', () => { $('installBtn').hidden = true; });
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
 load();
 </script>
