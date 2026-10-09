@@ -1,938 +1,282 @@
 <!DOCTYPE html>
-
-<html lang="en"><head>
-<meta content="noindex" name="robots"/>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>MyBudjet Ledger — Intelligent Financial Dashboard</title>
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyBudjet Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <style>
-:root {
-  /* Ultra-modern fintech design tokens */
-  --bg-page: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-card-subtle: #f1f5f9;
-  --bg-hover: #f8fafc;
-  --border: #e2e8f0;
-  --border-focus: #0d9488;
-  --border-subtle: #edf2f7;
-
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
-
-  --primary: #0f766e;
-  --primary-hover: #115e59;
-  --primary-soft: #f0fdfa;
-  --primary-border: #ccfbf1;
-  --primary-text: #115e59;
-
-  --pos: #059669;
-  --pos-soft: #ecfdf5;
-  --pos-border: #a7f3d0;
-  --neg: #e11d48;
-  --neg-soft: #fff1f2;
-  --neg-border: #fecdd3;
-  --warn: #d97706;
-  --warn-soft: #fffbeb;
-  --warn-border: #fef3c7;
-
-  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
-  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 2px 4px -2px rgb(15 23 42 / 0.04);
-  --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.06), 0 4px 6px -4px rgb(15 23 42 / 0.03);
-
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-}
-
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background-color: var(--bg-page);
-  color: var(--text-main);
-  font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 13.5px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-}
-
-/* Header & Navigation Bar */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 14px 32px;
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(12px);
-}
-
-.brand-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.brand-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 17px;
-  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.28);
-}
-.brand-text-block {
-  display: flex;
-  flex-direction: column;
-}
-h1 {
-  font-size: 16px;
-  margin: 0;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.brand-sub {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-#status {
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: var(--shadow-xs);
-}
-#status:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-#status.ok {
-  background: var(--pos-soft);
-  border-color: var(--pos-border);
-  color: #065f46;
-}
-#status.bad {
-  background: var(--warn-soft);
-  border-color: var(--warn-border);
-  color: #92400e;
-}
-.status-indicator-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: currentColor;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-}
-
-/* Nav tabs */
-nav#tabs {
-  display: flex;
-  gap: 6px;
-  padding: 0 32px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-nav#tabs::-webkit-scrollbar { display: none; }
-nav#tabs button {
-  border: 0;
-  background: none;
-  padding: 13px 18px;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-nav#tabs button .material-symbols-outlined {
-  font-size: 17px;
-  color: var(--text-subtle);
-  transition: color 0.15s;
-}
-nav#tabs button:hover {
-  color: var(--text-main);
-}
-nav#tabs button:hover .material-symbols-outlined {
-  color: var(--text-muted);
-}
-nav#tabs button.on {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-  font-weight: 600;
-}
-nav#tabs button.on .material-symbols-outlined {
-  color: var(--primary);
-}
-
-/* Demo Mode Notification Bar */
-#demoNotice {
-  background: linear-gradient(90deg, #ecfdf5 0%, #f0fdf4 100%);
-  border-bottom: 1px solid #bbf7d0;
-  color: #065f46;
-  padding: 8px 32px;
-  font-size: 12px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-#demoNotice.hide { display: none !important; }
-.demo-pill {
-  background: #059669;
-  color: #fff;
-  font-weight: 700;
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Layout container */
-main {
-  padding: 24px 32px 80px;
-  max-width: 1440px;
-  margin: 0 auto;
-}
-
-/* Clean Structured Panels */
-.panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 20px 24px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-xs);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.panel:hover {
-  box-shadow: var(--shadow-sm);
-  border-color: #cbd5e1;
-}
-
-details.panel {
-  padding: 16px 22px;
-}
-details.panel summary {
-  outline: none;
-  font-weight: 600;
-}
-
-/* Form Controls & Labels */
-.controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-}
-
-label.f {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-select,
-input[type=text],
-input[type=number],
-input[type=search],
-input[type=date],
-textarea {
-  font-family: inherit;
-  color: var(--text-main);
-  font-size: 13.5px;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: #ffffff;
-  min-width: 0;
-  transition: all 0.15s ease;
-}
-select {
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 14px;
-  padding-right: 32px;
-  appearance: none;
-}
-select:focus,
-input:focus,
-textarea:focus,
-button:focus-visible {
-  outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
-}
-
-/* Chips & Quick Filters */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 8px;
-}
-.chip {
-  border: 1px solid var(--border);
-  background: #ffffff;
-  border-radius: 9999px;
-  padding: 4px 12px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: all 0.12s ease;
-}
-.chip:hover {
-  background: var(--bg-card-subtle);
-  color: var(--text-main);
-  border-color: #cbd5e1;
-}
-.chip.on {
-  background: #0f766e;
-  border-color: #0f766e;
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.25);
-}
-
-.group-title {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 16px;
-  margin-bottom: 4px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.link {
-  background: none;
-  border: 0;
-  color: var(--primary);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 11px;
-  text-transform: none;
-  padding: 0;
-  text-decoration: underline;
-  font-weight: 600;
-}
-.link:hover {
-  color: var(--primary-hover);
-}
-
-/* Modern Buttons */
-.btn {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: #ffffff;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.15s ease;
-  box-shadow: var(--shadow-xs);
-}
-.btn:hover:not(:disabled) {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-.btn.alt {
-  background: #ffffff;
-  color: var(--text-main);
-  border-color: var(--border);
-}
-.btn.alt:hover:not(:disabled) {
-  background: var(--bg-card-subtle);
-  border-color: #cbd5e1;
-  color: var(--primary);
-}
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
-
-/* KPI Summary Cards */
-.summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin: 0 0 16px;
-}
-.summary > span {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--shadow-xs);
-  color: var(--text-muted);
-}
-.summary b {
-  color: var(--text-main);
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
-
-/* High-polish Fintech Data Tables */
-.tablewrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  box-shadow: var(--shadow-xs);
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-th, td {
-  padding: 11px 16px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  vertical-align: middle;
-}
-th {
-  background: #f8fafc;
-  font-weight: 600;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  border-bottom: 1px solid #cbd5e1;
-}
-tr:last-child td {
-  border-bottom: 0;
-}
-tr:hover td {
-  background-color: #f8fafc;
-}
-
-td.n, th.n {
-  text-align: right;
-  font-family: 'JetBrains Mono', monospace;
-}
-td.amt {
-  font-weight: 600;
-}
-td.sms {
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-subtle);
-  font-size: 12px;
-}
-
-tr.exp td.amt { color: var(--neg); }
-tr.inc td.amt { color: var(--pos); }
-tr.btw td.amt { color: var(--text-muted); }
-tr.todo td:first-child {
-  box-shadow: inset 4px 0 var(--warn);
-  background-color: rgba(254, 243, 199, 0.25);
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background: var(--bg-card-subtle);
-  border: 1px solid var(--border);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-td.acc {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--text-main);
-  transition: color 0.15s ease;
-}
-td.acc:hover {
-  color: var(--primary);
-  text-decoration: underline;
-}
-
-/* Verification list */
-.check {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.check:last-child {
-  border-bottom: 0;
-}
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-top: 6px;
-  flex: none;
-}
-.dot.ok {
-  background: var(--pos);
-  box-shadow: 0 0 0 3px var(--pos-soft);
-}
-.dot.bad {
-  background: var(--warn);
-  box-shadow: 0 0 0 3px var(--warn-soft);
-}
-.check small {
-  color: var(--text-muted);
-  display: block;
-  margin-top: 3px;
-  font-size: 12px;
-}
-
-.empty {
-  padding: 36px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-#err {
-  display: none;
-  background: var(--neg-soft);
-  border: 1px solid var(--neg-border);
-  color: var(--neg);
-  padding: 12px 18px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 16px;
-  font-weight: 500;
-}
-#loading {
-  padding: 60px;
-  text-align: center;
-  color: var(--text-muted);
-  font-weight: 500;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(15, 118, 110, 0.15);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.inline {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-td input[type=number] {
-  width: 120px;
-  text-align: right;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 4px 8px;
-}
-textarea {
-  width: 100%;
-  resize: vertical;
-}
-
-.hide { display: none !important; }
-.tsearch {
-  display: block;
-  width: 100%;
-  max-width: 380px;
-  margin: 0 0 12px;
-  padding: 9px 14px;
-}
-.invalid {
-  border-color: var(--neg) !important;
-  background: var(--neg-soft) !important;
-}
-
-/* Category View Navigation Sub-Tabs */
-#catTabs {
-  display: flex;
-  background: #ffffff;
-  padding: 4px;
-  gap: 4px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow-x: auto;
-}
-#catTabs button {
-  border: 0;
-  background: none;
-  padding: 8px 14px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  border-radius: 6px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-#catTabs button:hover {
-  color: var(--text-main);
-  background: var(--bg-card-subtle);
-}
-#catTabs button.on {
-  background: var(--primary-soft);
-  color: var(--primary-text);
-  font-weight: 600;
-}
+:root{--bg-page:#f8fafc;--bg-card:#fff;--bg-card-subtle:#f1f5f9;--border:#e2e8f0;--border-focus:#0d9488;
+--text-main:#0f172a;--text-muted:#64748b;--text-subtle:#94a3b8;--primary:#0f766e;--primary-hover:#115e59;--primary-soft:#f0fdfa;--primary-border:#ccfbf1;--primary-text:#115e59;
+--pos:#059669;--pos-soft:#ecfdf5;--pos-border:#a7f3d0;--neg:#e11d48;--neg-soft:#fff1f2;--neg-border:#fecdd3;--warn:#d97706;--warn-soft:#fffbeb;--warn-border:#fef3c7;
+--shadow-xs:0 1px 2px 0 rgb(15 23 42/.04);--shadow-sm:0 1px 3px 0 rgb(15 23 42/.06),0 1px 2px -1px rgb(15 23 42/.04);
+--radius-sm:8px;--radius-md:12px;
+/* names used by the script's inline styles */
+--paper:var(--bg-page);--ink:var(--text-main);--mute:var(--text-muted);--rule:var(--border);--accent:var(--primary);--accent-soft:var(--primary-soft)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg-page);color:var(--text-main);font:13.5px/1.5 'Plus Jakarta Sans','IBM Plex Sans Arabic',-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 32px;background:rgba(255,255,255,.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30;backdrop-filter:blur(12px)}
+.brand-wrapper{display:flex;align-items:center;gap:12px}
+.brand-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#14b8a6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;box-shadow:0 4px 10px rgba(15,118,110,.28)}
+.brand-text-block{display:flex;flex-direction:column}
+h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.02em}
+.brand-sub{font-size:11px;color:var(--text-muted);font-weight:500}
+.header-actions{display:flex;align-items:center;gap:12px}
+#status{padding:6px 14px;border-radius:9999px;font-weight:600;font-size:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .2s cubic-bezier(.16,1,.3,1);box-shadow:var(--shadow-xs)}
+#status:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+#status.ok{background:var(--pos-soft);border-color:var(--pos-border);color:#065f46}
+#status.bad{background:var(--warn-soft);border-color:var(--warn-border);color:#92400e}
+.status-indicator-dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px rgba(16,185,129,.2)}
+nav#tabs{display:flex;gap:6px;padding:0 32px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+nav#tabs::-webkit-scrollbar{display:none}
+nav#tabs button{border:0;background:none;padding:13px 18px;font:inherit;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;display:inline-flex;align-items:center;gap:7px}
+nav#tabs button .material-symbols-outlined{font-size:17px;color:var(--text-subtle)}
+nav#tabs button:hover{color:var(--text-main)}
+nav#tabs button.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+nav#tabs button.on .material-symbols-outlined{color:var(--primary)}
+main{padding:24px 32px 80px;max-width:1440px;margin:0 auto}
+.panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px;margin-bottom:20px;box-shadow:var(--shadow-xs);transition:box-shadow .2s,border-color .2s}
+.panel:hover{box-shadow:var(--shadow-sm);border-color:#cbd5e1}
+details.panel{padding:16px 22px}
+details.panel summary{outline:none;font-weight:600}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+label.f{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:600}
+select,input[type=text],input[type=number],input[type=search],input[type=date],textarea{font-family:inherit;color:var(--text-main);font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;min-width:0;transition:all .15s}
+select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:14px;padding-right:32px;appearance:none}
+select:focus,input:focus,textarea:focus,button:focus-visible{outline:none;border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+textarea{width:100%;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.chip{border:1px solid var(--border);background:#fff;border-radius:9999px;padding:4px 12px;font:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-muted);transition:all .12s}
+.chip:hover{background:var(--bg-card-subtle);color:var(--text-main);border-color:#cbd5e1}
+.chip.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(15,118,110,.25)}
+.group-title{font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 4px;display:flex;gap:10px;align-items:center}
+.link{background:none;border:0;color:var(--primary);cursor:pointer;font:inherit;font-size:11px;text-transform:none;padding:0;text-decoration:underline;font-weight:600}
+.btn{font:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--primary);background:var(--primary);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;box-shadow:var(--shadow-xs)}
+.btn:hover:not(:disabled){background:var(--primary-hover);border-color:var(--primary-hover);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.btn.alt{background:#fff;color:var(--text-main);border-color:var(--border)}
+.btn.alt:hover:not(:disabled){background:var(--bg-card-subtle);border-color:#cbd5e1;color:var(--primary)}
+.btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;transform:none}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:0 0 16px}
+.summary>span{background:#fff;border:1px solid var(--border);padding:12px 16px;border-radius:var(--radius-md);font-size:12px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow-xs);color:var(--text-muted)}
+.summary b{color:var(--text-main);font-weight:700;font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:-.02em}
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:#fff;box-shadow:var(--shadow-xs)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:11px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+th{background:#f8fafc;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);position:sticky;top:0;z-index:2;border-bottom:1px solid #cbd5e1}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:#f8fafc}
+td.n,th.n{text-align:right;font-family:'JetBrains Mono',monospace}
+td.amt{font-weight:600}
+td.sms{max-width:240px;overflow:hidden;text-overflow:ellipsis;color:var(--text-subtle);font-size:12px}
+tr.exp td.amt{color:var(--neg)} tr.inc td.amt{color:var(--pos)} tr.btw td.amt{color:var(--text-muted)}
+tr.todo td:first-child{box-shadow:inset 4px 0 var(--warn);background:rgba(254,243,199,.25)}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;background:var(--bg-card-subtle);border:1px solid var(--border);font-size:11.5px;font-weight:500;color:var(--text-muted)}
+td.acc{cursor:pointer;font-weight:500;transition:color .15s}
+td.acc:hover{color:var(--primary);text-decoration:underline}
+.check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+.check:last-child{border-bottom:0}
+.check small{color:var(--text-muted);display:block;margin-top:3px;font-size:12px}
+.dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none}
+.dot.ok{background:var(--pos);box-shadow:0 0 0 3px var(--pos-soft)}
+.dot.bad{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+.empty{padding:36px 20px;text-align:center;color:var(--text-muted);font-style:italic}
+#err{display:none;background:var(--neg-soft);border:1px solid var(--neg-border);color:var(--neg);padding:12px 18px;border-radius:var(--radius-sm);margin-bottom:16px;font-weight:500}
+#loading{padding:60px;text-align:center;color:var(--text-muted);font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.spinner{width:28px;height:28px;border:3px solid rgba(15,118,110,.15);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',monospace;padding:4px 8px}
+.hide{display:none!important}
+.tsearch{display:block;width:100%;max-width:380px;margin:0 0 12px;padding:9px 14px}
+.invalid{border-color:var(--neg)!important;background:var(--neg-soft)!important}
+#catTabs{display:flex;background:#fff;padding:4px;gap:4px;margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow-x:auto}
+#catTabs button{border:0;background:none;padding:8px 14px;font:inherit;font-size:13px;font-weight:500;color:var(--text-muted);border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s}
+#catTabs button:hover{color:var(--text-main);background:var(--bg-card-subtle)}
+#catTabs button.on{background:var(--primary-soft);color:var(--primary-text);font-weight:600}
 </style>
 </head>
 <body>
 <header>
-<div class="brand-wrapper">
-<div class="brand-icon">M</div>
-<div class="brand-text-block">
-<h1>MyBudjet ledger</h1>
-<span class="brand-sub">Financial Intelligence &amp; Multi-Account Bookkeeping</span>
-</div>
-</div>
-<div class="header-actions">
-<button class="btn alt" id="reload">
-<span class="material-symbols-outlined" style="font-size:16px">sync</span>
-      Reload data
-    </button>
-<div id="status" title="Open verification">
-<span class="status-indicator-dot"></span>
-<span>Loading…</span>
-</div>
-</div>
+  <div class="brand-wrapper">
+    <div class="brand-icon">M</div>
+    <div class="brand-text-block"><h1>MyBudjet ledger</h1><span class="brand-sub">Financial Intelligence &amp; Multi-Account Bookkeeping</span></div>
+  </div>
+  <div class="header-actions">
+    <button class="btn alt" id="reload"><span class="material-symbols-outlined" style="font-size:16px">sync</span> Reload data</button>
+    <div id="status" title="Open verification"><span class="status-indicator-dot"></span><span>Loading…</span></div>
+  </div>
 </header>
-<div class="hide" id="demoNotice">
-<div style="display:flex;align-items:center;gap:8px">
-<span class="demo-pill">Preview Mode</span>
-<span>Connected to simulated ledger dataset. Real-time updates &amp; parsing active.</span>
-</div>
-<button class="link" onclick="$('demoNotice').classList.add('hide')" style="color:#065f46">Dismiss</button>
-</div>
 <nav id="tabs">
-<button class="on" data-t="records">
-<span class="material-symbols-outlined">receipt_long</span>
-    Records
-  </button>
-<button data-t="accounts">
-<span class="material-symbols-outlined">account_balance</span>
-    Accounts &amp; verification
-  </button>
-<button data-t="catview">
-<span class="material-symbols-outlined">pie_chart</span>
-    Categories
-  </button>
-<button data-t="cats">
-<span class="material-symbols-outlined">label</span>
-    Categorize
-  </button>
-<button data-t="add">
-<span class="material-symbols-outlined">add_circle</span>
-    Add entry
-  </button>
+  <button data-t="records" class="on"><span class="material-symbols-outlined">receipt_long</span> Records</button>
+  <button data-t="accounts"><span class="material-symbols-outlined">account_balance</span> Accounts &amp; verification</button>
+  <button data-t="catview"><span class="material-symbols-outlined">pie_chart</span> Categories</button>
+  <button data-t="cats"><span class="material-symbols-outlined">label</span> Categorize</button>
+  <button data-t="add"><span class="material-symbols-outlined">add_circle</span> Add entry</button>
 </nav>
 <main>
-<div id="err"></div>
-<div id="loading">
-<div class="spinner"></div>
-<span>Reading the Responses sheet…</span>
-</div>
-<section hidden="" id="records">
-<div class="panel">
-<div class="controls">
-<label class="f">Operation<select id="fOp"></select></label>
-<label class="f">Details<select id="fDet"></select></label>
-<label class="f">Salary period<select id="fSal"></select></label>
-<label class="f">Account (withdrawn or deposited)<select id="fAcc"></select></label>
-<label class="f">Category<select id="fCat"></select></label>
-<label class="f">Search the table (any column)<input id="fQ" placeholder="words, amount, date, account…" type="search"/></label>
-</div>
-<div class="group-title">People &amp; extras <button class="link" id="clrP">clear</button></div>
-<div class="chips" id="chipsP"></div>
-<div class="group-title">Details <button class="link" id="clrD">clear</button></div>
-<div class="chips" id="chipsD"></div>
-</div>
-<div class="summary" id="sum"></div>
-<label style="display:flex;gap:8px;align-items:center;margin:0 0 14px;color:var(--text-muted);font-size:13px;cursor:pointer">
-<input checked="" id="foldCb" type="checkbox"/> Fold cash back entries into their main operation (extra column)
-    </label>
-<div class="tablewrap"><table id="tbl"></table></div>
-<p style="text-align:center"><button class="btn alt" hidden="" id="more"></button></p>
-</section>
-<section hidden="" id="accounts">
-<details class="panel" id="verif">
-<summary style="cursor:pointer;display:flex;gap:8px;align-items:center">
-<b>Verification</b>
-<span class="dot ok" id="verifDot"></span>
-<span id="verifBadge" style="color:var(--text-muted);font-weight:500;font-size:12.5px"></span>
-</summary>
-<div id="checks" style="margin-top:12px"></div>
-</details>
-<div class="panel">
-<div class="inline">
-<label class="f">New account<input id="newAcc" placeholder="e.g. Alinma" type="text"/></label>
-<label class="f">Opening balance (optional)<input id="newAccOpen" step="0.01" type="number"/></label>
-<button class="btn alt" id="addAcc">Add account</button>
-<span id="accMsg" style="color:var(--text-muted)"></span>
-</div>
-</div>
-<div class="tablewrap"><table id="acc"></table></div>
-<p style="color:var(--text-muted);font-size:12.5px;line-height:1.6;margin-top:12px">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).<br/>
-      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.<br/>
-      Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.<br/>
+  <div id="err"></div>
+  <div id="loading"><div class="spinner"></div><span>Reading the Responses sheet…</span></div>
+
+  <section id="records" hidden>
+    <div class="panel">
+      <div class="controls">
+        <label class="f">Operation<select id="fOp"></select></label>
+        <label class="f">Details<select id="fDet"></select></label>
+        <label class="f">Salary period<select id="fSal"></select></label>
+        <label class="f">Account (withdrawn or deposited)<select id="fAcc"></select></label>
+        <label class="f">Category<select id="fCat"></select></label>
+        <label class="f">Search the table (any column)<input type="search" id="fQ" placeholder="words, amount, date, account…"></label>
+      </div>
+      <div class="group-title">People &amp; extras <button class="link" id="clrP">clear</button></div>
+      <div class="chips" id="chipsP"></div>
+      <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
+      <div class="chips" id="chipsD"></div>
+    </div>
+    <div class="summary" id="sum"></div>
+    <label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--mute)"><input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)</label>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
+  </section>
+
+  <section id="accounts" hidden>
+    <details class="panel" id="verif">
+      <summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
+      <div id="checks" style="margin-top:10px"></div>
+    </details>
+    <div class="panel">
+      <div class="inline">
+        <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
+        <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
+        <button class="btn alt" id="addAcc">Add account</button>
+        <span id="accMsg" style="color:var(--mute)"></span>
+      </div>
+    </div>
+    <div class="tablewrap"><table id="acc"></table></div>
+    <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).
+      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.
+      Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.
       Opening balances are saved with the web app.</p>
-<details class="panel" style="margin-top:14px">
-<summary style="cursor:pointer"><b>Compare cash back with a column from your sheet</b></summary>
-<p style="color:var(--text-muted);font-size:12.5px">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
-<div class="inline"><label class="f">First row<input id="cmpFirst" style="width:90px" type="number" value="2"/></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
-<textarea id="cmpData" placeholder="Paste the column here..." rows="5" style="margin-top:8px"></textarea>
-<div id="cmpOut" style="margin-top:10px"></div>
-</details>
-</section>
-<section hidden="" id="catview">
-<nav id="catTabs"></nav>
-<div class="summary" id="catSum"></div>
-<div class="chips" id="subTabs" style="margin:0 0 14px"></div>
-<input class="tsearch" id="cvQ" placeholder="Search rows in this category…" type="search"/>
-<div class="tablewrap"><table id="cvTbl"></table></div>
-</section>
-<section hidden="" id="cats">
-<div class="panel">
-<div class="inline">
-<label class="f">Category<select id="bCat"></select></label>
-<label class="f">Sub-category<input id="bSub" list="subList" type="text"/></label>
-<button class="btn alt" id="bApply">Apply to checked rows</button>
-<label style="display:flex;gap:6px;align-items:center;margin-left:auto;color:var(--text-muted);font-size:12.5px;cursor:pointer"><input id="showAll" type="checkbox"/> Show already categorized</label>
-</div>
-<div class="inline" style="margin-top:14px">
-<label class="f">New category<input id="newCat" type="text"/></label>
-<button class="btn alt" id="addCat">Add category</button>
-</div>
-</div>
-<datalist id="subList"></datalist>
-<div class="tablewrap"><table id="ctbl"></table></div>
-<p style="margin-top:14px"><button class="btn" disabled="" id="saveCats">Save to Responses sheet</button> <span id="saveMsg" style="color:var(--text-muted);margin-left:8px"></span></p>
-</section>
-<section hidden="" id="add">
-<div class="panel">
-<label class="f">Bank SMS (paste here and the form fills itself)
-        <textarea id="aeSms" placeholder="Paste the full bank SMS here... (e.g. شراء-POS لبطاقة مدى عبر نقاط بيع بمبلغ 125.50 ريال)" rows="4"></textarea>
-</label>
-<div class="inline" style="margin-top:10px">
-<button class="btn alt" id="aePasteSms" type="button">Paste from clipboard</button>
-<span id="aeSmsStatus" style="color:var(--text-muted);font-size:12.5px"></span>
-</div>
-</div>
-<div class="panel">
-<div class="controls">
-<label class="f">Transaction type<select id="aeType"></select></label>
-<label class="f" id="aeWdBox">Withdrawn from<select id="aeWd"></select></label>
-<label class="f hide" id="aeO1Box">1st other account<input id="aeO1" type="text"/></label>
-<label class="f" id="aeOpBox">Operation type<select id="aeOp"></select></label>
-<label class="f" id="aeFeeBox">Fees (SAR)<select id="aeFee"></select></label>
-<label class="f hide" id="aeDepBox">Deposited into<select id="aeDep"></select></label>
-<label class="f hide" id="aeO2Box">2nd other account<input id="aeO2" type="text"/></label>
-<label class="f">Amount (SAR)<input id="aeAmt" inputmode="decimal" placeholder="0.00" type="text"/></label>
-<label class="f">Date<input id="aeDate" type="date"/></label>
-<label class="f">Hour<input id="aeH" inputmode="numeric" maxlength="2" placeholder="HH" type="text"/></label>
-<label class="f">Minute<input id="aeM" inputmode="numeric" maxlength="2" placeholder="MM" type="text"/></label>
-<label class="f">Details<select id="aeDet"></select></label>
-<label class="f">Extras<input id="aeExtras" placeholder="Item, merchant, person..." type="text"/></label>
-<label class="f">Cash back<select id="aeCb"></select></label>
-<label class="f hide" id="aeCbAmtBox">Cash back amount<input id="aeCbAmt" inputmode="decimal" placeholder="0.00" type="text"/></label>
-</div>
-<label class="f hide" id="aeCbSmsBox" style="margin-top:12px">Cash back SMS (optional)
-        <textarea id="aeCbSms" placeholder="Cash back notification SMS..." rows="2"></textarea>
-<span><button class="btn alt" id="aePasteCb" style="margin-top:8px" type="button">Paste from clipboard</button></span>
-</label>
-<p id="aeErr" style="color:var(--neg);margin:12px 0 0;font-weight:500"></p>
-<p style="margin:16px 0 0"><button class="btn" id="aeSave" type="button">Submit entry</button> <span id="aeMsg" style="color:var(--text-muted);margin-left:8px"></span></p>
-</div>
-</section>
+    <details class="panel" style="margin-top:14px">
+      <summary style="cursor:pointer"><b>Compare cash back with a column from your sheet</b></summary>
+      <p style="color:var(--mute)">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
+      <div class="inline"><label class="f">First row<input type="number" id="cmpFirst" value="2" style="width:90px"></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
+      <textarea id="cmpData" rows="5" placeholder="Paste the column here..." style="margin-top:8px"></textarea>
+      <div id="cmpOut" style="margin-top:10px"></div>
+    </details>
+  </section>
+
+  <section id="catview" hidden>
+    <nav id="catTabs" style="padding:0;margin-bottom:12px;border:1px solid var(--rule);border-radius:6px"></nav>
+    <div class="summary" id="catSum"></div>
+    <div class="chips" id="subTabs" style="margin:0 0 12px"></div>
+    <input type="search" id="cvQ" class="tsearch" placeholder="Search rows in this category…">
+    <div class="tablewrap"><table id="cvTbl"></table></div>
+  </section>
+
+  <section id="cats" hidden>
+    <div class="panel">
+      <div class="inline">
+        <label class="f">Category<select id="bCat"></select></label>
+        <label class="f">Sub-category<input type="text" id="bSub" list="subList"></label>
+        <button class="btn alt" id="bApply">Apply to checked rows</button>
+        <label style="display:flex;gap:6px;align-items:center;margin-left:auto"><input type="checkbox" id="showAll"> Show already categorized</label>
+      </div>
+      <div class="inline" style="margin-top:12px">
+        <label class="f">New category<input type="text" id="newCat"></label>
+        <button class="btn alt" id="addCat">Add category</button>
+      </div>
+    </div>
+    <datalist id="subList"></datalist>
+    <div class="tablewrap"><table id="ctbl"></table></div>
+    <p><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--mute)"></span></p>
+  </section>
+  <section id="add" hidden>
+    <div class="panel">
+      <label class="f">Bank SMS (paste here and the form fills itself)
+        <textarea id="aeSms" rows="4" placeholder="Paste the full bank SMS here..."></textarea>
+      </label>
+      <div class="inline" style="margin-top:8px">
+        <button class="btn alt" id="aePasteSms" type="button">Paste from clipboard</button>
+        <span id="aeSmsStatus" style="color:var(--mute)"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <label class="f">Transaction type<select id="aeType"></select></label>
+        <label class="f" id="aeWdBox">Withdrawn from<select id="aeWd"></select></label>
+        <label class="f hide" id="aeO1Box">1st other account<input type="text" id="aeO1"></label>
+        <label class="f" id="aeOpBox">Operation type<select id="aeOp"></select></label>
+        <label class="f" id="aeFeeBox">Fees (SAR)<select id="aeFee"></select></label>
+        <label class="f hide" id="aeDepBox">Deposited into<select id="aeDep"></select></label>
+        <label class="f hide" id="aeO2Box">2nd other account<input type="text" id="aeO2"></label>
+        <label class="f">Amount (SAR)<input type="text" id="aeAmt" inputmode="decimal" placeholder="0.00"></label>
+        <label class="f">Date<input type="date" id="aeDate"></label>
+        <label class="f">Hour<input type="text" id="aeH" inputmode="numeric" maxlength="2" placeholder="HH"></label>
+        <label class="f">Minute<input type="text" id="aeM" inputmode="numeric" maxlength="2" placeholder="MM"></label>
+        <label class="f">Details<select id="aeDet"></select></label>
+        <label class="f">Extras<input type="text" id="aeExtras" placeholder="Item, merchant, person..."></label>
+        <label class="f">Cash back<select id="aeCb"></select></label>
+        <label class="f hide" id="aeCbAmtBox">Cash back amount<input type="text" id="aeCbAmt" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <label class="f hide" id="aeCbSmsBox" style="margin-top:10px">Cash back SMS (optional)
+        <textarea id="aeCbSms" rows="2" placeholder="Cash back notification SMS..."></textarea>
+        <span><button class="btn alt" id="aePasteCb" type="button" style="margin-top:6px">Paste from clipboard</button></span>
+      </label>
+      <p id="aeErr" style="color:var(--neg);margin:10px 0 0"></p>
+      <p style="margin:10px 0 0"><button class="btn" id="aeSave" type="button">Submit entry</button> <span id="aeMsg" style="color:var(--mute)"></span></p>
+    </div>
+  </section>
+
 </main>
+
 <script>
 /* ---------- Backend connection (GitHub Pages -> Apps Script web app) ---------- */
+// Paste your Apps Script web app URL here (ends with /exec). It is safe to commit; the token is not stored in this file.
 const API_URL = 'https://script.google.com/macros/s/AKfycbwehuPHKbGyLzI7v3gee_r91UCXw58vYrsf1TdxrHMx8VO7jtRIX_DNnEpJOBwoxQk5IQ/exec';
 
-/* Comprehensive Mock Data for Standalone Preview & Graceful Fallback */
-function getMockData() {
-  const mockCfg = {
-    accounts: ['Ahli', 'Ahli Credit', 'Ahli Credit2', 'Alinma', 'Rajhi', 'Riyad', 'SAIB', 'STCPay'],
-    opening: {
-      'Ahli': 14250.00,
-      'Ahli Credit': 0,
-      'Ahli Credit2': -1200.50,
-      'Alinma': 5400.00,
-      'Rajhi': 8230.20,
-      'Riyad': 3150.00,
-      'SAIB': 1200.00,
-      'STCPay': 450.75
-    },
-    cats: ['Income', 'Debts', 'Community & Car', 'My Relatives', 'Travels', 'Electronics', 'Shopping', '2nd Car', 'House'],
-    subs: {
-      'Shopping': ['Panda', 'Amazon', 'Lulu Hypermarket', 'Noon'],
-      'My Relatives': ['DAD Support', 'MOM Gift', 'Murtaja Allowance'],
-      'Travels': ['Hotels', 'Flights', 'Fuel']
-    }
-  };
-
-  const mockRows = [
-    {r: 101, ts: '2026-02-26 09:30:00', op: 'Incomes', wd: '', dep: 'Ahli', amt: 22500.00, fee: 0, amt2: 0, cbp: 0, det: 'My Incomes', cat: 'Income', sub: 'Salary', ex: 'Saudi Aramco Base', sms: 'تم إيداع راتب بمبلغ 22,500 ر.س في حسابك لدى الأهلي', date: '2026-02-26', h: 9, m: 30, url: ''},
-    {r: 102, ts: '2026-02-26 11:15:00', op: 'Between Acounts', wd: 'Ahli', dep: 'STCPay', amt: 1500.00, fee: 0, amt2: 0, cbp: 0, det: 'Betweens', cat: '', sub: '', ex: 'Topup wallet', sms: 'حوالة داخلية بـ 1500 ر.س إلى STCPay', date: '2026-02-26', h: 11, m: 15, url: ''},
-    {r: 103, ts: '2026-02-26 14:20:00', op: 'Expenses', wd: 'Ahli Credit2', dep: '', amt: 480.00, fee: 0, amt2: 24.00, cbp: 24.00, det: 'Resturants', cat: 'Resturants', sub: 'Dining', ex: 'Dinner at Sultan Steakhouse', sms: 'شراء-POS لبطاقة ***5465 بمبلغ 480.00 ر.س', date: '2026-02-26', h: 14, m: 20, url: ''},
-    {r: 104, ts: '2026-02-27 10:05:00', op: 'Expenses', wd: 'Ahli Credit2', dep: '', amt: 1200.00, fee: 0, amt2: 60.00, cbp: 60.00, det: 'Shopping', cat: 'Shopping', sub: 'Amazon', ex: 'Electronics & cables', sms: 'شراء إنترنت لبطاقة ***5465 بمبلغ 1200.00 ر.س', date: '2026-02-27', h: 10, m: 5, url: ''},
-    {r: 105, ts: '2026-02-28 17:45:00', op: 'Expenses', wd: 'Rajhi', dep: '', amt: 2500.00, fee: 0, amt2: 0, cbp: 0, det: 'My Relatives', cat: 'My Relatives', sub: 'DAD Support', ex: 'DAD monthly transfer', sms: 'حوالة صادرة من حساب 6685 بمبلغ 2500.00 ر.س', date: '2026-02-28', h: 17, m: 45, url: ''},
-    {r: 106, ts: '2026-03-01 08:30:00', op: 'Expenses', wd: 'Alinma', dep: '', amt: 3200.00, fee: 0, amt2: 0, cbp: 0, det: 'Loan installment', cat: 'Debts', sub: 'Car Lease', ex: 'Monthly Durango Car Installment', sms: 'سداد قسط تمويل تأجيري بمبلغ 3200.00 ر.س', date: '2026-03-01', h: 8, m: 30, url: ''},
-    {r: 107, ts: '2026-03-01 12:10:00', op: 'Expenses', wd: 'STCPay', dep: '', amt: 240.00, fee: 0, amt2: 0, cbp: 0, det: 'Gas95', cat: 'Gas95', sub: 'Fuel', ex: 'Aldrees Gas Station', sms: 'شراء عبر نقاط بيع STCPay بمبلغ 240.00 ر.س', date: '2026-03-01', h: 12, m: 10, url: ''},
-    {r: 108, ts: '2026-03-02 16:22:00', op: 'Expenses', wd: 'Ahli Credit2', dep: '', amt: 850.00, fee: 0, amt2: 42.50, cbp: 42.50, det: 'Shopping', cat: 'Shopping', sub: 'Panda', ex: 'Groceries MOM & Family', sms: 'شراء-POS بطاقة ***5465 بمبلغ 850.00 ر.س', date: '2026-03-02', h: 16, m: 22, url: ''},
-    {r: 109, ts: '2026-03-02 19:15:00', op: 'Incomes', wd: '', dep: 'Ahli Credit2', amt: 24.00, fee: 0, amt2: 0, cbp: 0, det: 'Cash Back', cat: 'Cash Back', sub: 'Credit Rewards', ex: '5% Dining Cashback', sms: 'استرجاع نقدي بمبلغ 24.00 ر.س لبطاقتك الائتمانية', date: '2026-03-02', h: 19, m: 15, url: ''},
-    {r: 110, ts: '2026-03-03 11:00:00', op: 'Expenses', wd: 'Ahli', dep: '', amt: 350.00, fee: 5.75, amt2: 0, cbp: 0, det: 'Mobiles, Net', cat: 'Mobiles, Net', sub: 'Fiber STC', ex: 'Home Fiber 300Mbps', sms: 'سداد فاتورة STC بمبلغ 350.00 ر.س والرسوم 5.75', date: '2026-03-03', h: 11, m: 0, url: ''},
-    {r: 111, ts: '2026-03-04 15:30:00', op: 'Expenses', wd: 'SAIB', dep: '', amt: 600.00, fee: 0, amt2: 0, cbp: 0, det: 'Travels', cat: '', sub: '', ex: 'Hotels Riyadh weekend booking', sms: 'خصم من حساب X7001 بمبلغ 600.00 ر.س', date: '2026-03-04', h: 15, m: 30, url: ''},
-    {r: 112, ts: '2026-03-05 20:00:00', op: 'Expenses', wd: 'Riyad', dep: '', amt: 180.00, fee: 0, amt2: 0, cbp: 0, det: 'Meets', cat: 'Meets', sub: 'Cafe', ex: 'Weekly friend gathering Al Ons', sms: 'شراء عبر نقاط بيع 969940* بمبلغ 180.00 ر.س', date: '2026-03-05', h: 20, m: 0, url: ''}
-  ];
-
-  return {
-    rows: mockRows,
-    cfg: mockCfg,
-    cbCol: { letter: 'P', header: 'Cash back' },
-    missing: []
-  };
-}
-
-const RETRY_FNS = /^(dashGet|dashSaveCfg)/;
+const RETRY_FNS = /^(dashGet|dashSaveCfg)/;              // reads/saves of settings are safe to repeat; entry submits are not
 async function apiCall(fn, args) {
-  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) {
-    throw new Error('API_URL not configured. Running mock standalone mode.');
-  }
-  let token = localStorage.getItem('mb_token') || 'demo_token';
-  const tries = RETRY_FNS.test(fn) ? 2 : 1;
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)) throw new Error('Set API_URL at the top of the script in index.html.');
+  let token = localStorage.getItem('mb_token');
+  if (!token) { token = prompt('Access token (the API_TOKEN you set in Apps Script):'); if (!token) throw new Error('Access token required.'); localStorage.setItem('mb_token', token.trim()); token = token.trim(); }
+  const tries = RETRY_FNS.test(fn) ? 3 : 1;
   let lastErr;
   for (let i = 0; i < tries; i++) {
-    if (i) await new Promise(r => setTimeout(r, 600 * i));
+    if (i) await new Promise(r => setTimeout(r, 1200 * i));
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},   // avoids a CORS preflight, which Apps Script cannot answer
         body: JSON.stringify({fn: fn, args: args, token: token})
       });
       const txt = await res.text();
       let j; try { j = JSON.parse(txt); } catch (e) {
-        lastErr = new Error('The backend returned invalid JSON or is restricted.');
+        lastErr = new Error(/accounts\.google\.com|Sign in/i.test(txt)
+          ? 'The backend asks for a Google sign-in: set the deployment access to "Anyone".'
+          : 'The backend returned a web page instead of data (HTTP ' + res.status + '). Apps Script was probably busy or timed out; press Reload.');
         continue;
       }
       if (!j || !j.ok) {
-        const err = new Error((j && j.error) || 'Backend error');
+        if (j && j.error === 'unauthorized') localStorage.removeItem('mb_token');
+        const err = new Error(j && j.error === 'unauthorized' ? 'Wrong access token. Reload and enter it again.' : ((j && j.error) || 'The backend reported an error.'));
         err.final = true; throw err;
       }
+      if (j.data === undefined && /^dashGet/.test(fn)) { lastErr = new Error('The backend sent an empty reply. Press Reload.'); continue; }
       return j.data;
     } catch (e) { if (e.final) throw e; lastErr = e; }
   }
   throw lastErr;
 }
-
+// Keeps the rest of the code unchanged: google.script.run.withSuccessHandler(..).withFailureHandler(..).fn(args)
 function makeRunner(ok, fail) {
   return new Proxy({}, {get: (_, name) => {
     if (name === 'withSuccessHandler') return f => makeRunner(f, fail);
     if (name === 'withFailureHandler') return f => makeRunner(ok, f);
-    return (...args) => {
-      apiCall(String(name), args)
-        .then(ok || (() => {}))
-        .catch(err => {
-          // Graceful fallback to demo data if backend unavailable
-          if (String(name) === 'dashGetData') {
-            $('demoNotice').classList.remove('hide');
-            init(getMockData());
-          } else if (String(name) === 'dashSaveCfg' || String(name) === 'dashSaveCats') {
-            if (ok) ok();
-          } else if (String(name) === 'dashAddEntry') {
-            if (ok) ok({row: rows.length + 101, ts: new Date().toISOString(), op: args[0].type});
-          } else if (fail) {
-            fail(err);
-          }
-        });
-    };
+    return (...args) => { apiCall(String(name), args).then(ok || (() => {})).catch(fail || (e => console.error(e))); };
   }});
 }
 window.google = {script: {run: makeRunner()}};
@@ -971,14 +315,15 @@ const catOf = r => r.cat || (AUTO.includes(r.det) ? r.det : '');
 const needsCat = r => !r.cat && !AUTO.includes(r.det) && r.op2 !== 'Between Acounts' && r.det !== 'Betweens';
 const cats = () => cfg.cats && cfg.cats.length ? cfg.cats : DEFAULT_CATS;
 
-/* ---------- Cash back calculations & linking ---------- */
+
+/* ---------- Cash back: separate entries (Details = Cash Back) folded into their main operation ---------- */
 const isCbDet = d => String(d || '').replace(/\s/g, '').toLowerCase() === 'cashback';
-const cbp = r => (r.cbp !== undefined ? r.cbp : r.amt2) || 0;
+const cbp = r => (r.cbp !== undefined ? r.cbp : r.amt2) || 0;   // extra cash back = sheet column P (falls back to the 2nd Amount column)
 let cbInfo = null;
-const CB_P_ACCOUNT = 'Ahli Credit2';
+const CB_P_ACCOUNT = 'Ahli Credit2';   // like your formula, the whole of column P (SUM(P2:P)) belongs to this account
 function linkCb() {
   rows.forEach(r => { r.cbx = cbp(r); r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
-  const PCT = [0.007, 0.05, 0.11];
+  const PCT = [0.007, 0.05, 0.11];                       // the cash back rates of the entry form
   const day = s => Date.parse((s || '') + 'T00:00:00Z') / 86400000;
   rows.forEach((c, i) => {
     if (!c.cbIsEntry || !c.dep) return;
@@ -1003,28 +348,23 @@ function load() {
   $('loading').hidden = false; $('err').style.display = 'none';
   google.script.run.withSuccessHandler(init).withFailureHandler(showErr).dashGetData();
 }
-function showErr(e) {
-  $('loading').hidden = true;
-  $('err').style.display = 'block';
-  $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e) + '. Loaded demo dataset.';
-  $('demoNotice').classList.remove('hide');
-  init(getMockData());
-}
+function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
-  if (!d || !Array.isArray(d.rows)) {
-    $('demoNotice').classList.remove('hide');
-    d = getMockData();
-  }
+  if (!d || !Array.isArray(d.rows)) { showErr(new Error('The backend sent an empty reply. Press Reload.')); return; }
   cbInfo = d.cbCol || null;
   cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
-  rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || (a.ts || '').localeCompare(b.ts || ''));
+  // Sheet 2: sorted by action date, then H, then M, then timestamp
+  rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
   linkCb(); aeRefillAccounts();
   pend = {};
   $('loading').hidden = true;
+  if (d.missing && d.missing.length) {
+    const need = d.missing.filter(k => !['url', 'cat', 'sub', 'sms2', 'o1', 'o2'].includes(k));
+    if (need.length) { $('err').style.display = 'block'; $('err').textContent = 'Header not found in Responses: ' + need.join(', '); }
+  }
   buildFilters(); renderAll();
-  const curTabBtn = document.querySelector('#tabs .on');
-  showTab(curTabBtn ? curTabBtn.dataset.t : 'records');
+  showTab(document.querySelector('#tabs .on').dataset.t);
 }
 function renderAll() { renderRecords(); renderAccounts(); renderCats(); renderCatView(); }
 
@@ -1064,33 +404,30 @@ function filtered() {
 function renderRecords() {
   const f = filtered();
   const fold = $('foldCb').checked && $('fDet').value !== 'Cash Back' && !chipD.has('Cash Back');
-  const view = (fold ? f.filter(r => !r.cbOf) : f).slice().reverse();
+  const view = (fold ? f.filter(r => !r.cbOf) : f).slice().reverse();   // newest first
   const cbTot = f.reduce((s, r) => s + ((r.cbIsEntry ? r.amt : 0) + cbp(r)), 0);
   const inc = f.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
   const exp = f.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
   const btw = f.filter(r => r.op2 === 'Between Acounts').reduce((s, r) => s + r.amt, 0);
   const feeCol = f.reduce((s, r) => s + r.fee, 0);
   const feeDet = f.filter(r => r.det === 'Fees').reduce((s, r) => s + r.amt, 0);
-  const fee = feeCol + feeDet;
-
-  $('sum').innerHTML = `
-    <span><span>Rows</span><b>${view.length}${view.length !== f.length ? ' (+' + (f.length - view.length) + ' cb)' : ''}</b></span>
-    <span style="border-left:3px solid var(--pos)"><span>Total Incomes</span><b style="color:var(--pos)">+${money(inc)} SAR</b></span>
-    <span style="border-left:3px solid var(--neg)"><span>Total Expenses</span><b style="color:var(--neg)">-${money(exp)} SAR</b></span>
-    <span><span>Transfers (Between)</span><b>${money(btw)} SAR</b></span>
-    <span title="Fees column + rows with Details = Fees"><span>Fees</span><b>${money(fee)} SAR</b></span>
-    <span><span>Cash Back</span><b style="color:#0284c7">${money(cbTot)} SAR</b></span>
-    <span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>Net Cashflow</span><b style="color:var(--primary-text)">${money(inc - exp - feeCol)} SAR</b></span>
-  `;
-
+  const fee = feeCol + feeDet;   // Fees column + main entries whose Details = "Fees"
+  $('sum').innerHTML =
+    '<span><span>Rows</span><b>' + view.length + (view.length !== f.length ? ' (+' + (f.length - view.length) + ' cb)' : '') + '</b></span>' +
+    '<span style="border-left:3px solid var(--pos)"><span>Total Incomes</span><b style="color:var(--pos)">+' + money(inc) + ' SAR</b></span>' +
+    '<span style="border-left:3px solid var(--neg)"><span>Total Expenses</span><b style="color:var(--neg)">-' + money(exp) + ' SAR</b></span>' +
+    '<span><span>Transfers (Between)</span><b>' + money(btw) + ' SAR</b></span>' +
+    '<span title="Fees column + rows with Details = Fees"><span>Fees</span><b>' + money(fee) + ' SAR</b></span>' +
+    '<span><span>Cash Back</span><b style="color:#0284c7">' + money(cbTot) + ' SAR</b></span>' +
+    '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>Net Cashflow</span><b style="color:var(--primary-text)">' + money(inc - exp - feeCol) + ' SAR</b></span>';
   const hasUrl = rows.some(r => r.url);
   const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
   if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="14" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
   const body = view.slice(0, shown).map(r => {
     const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
     const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
-    const amtSign = r.op2 === 'Incomes' ? '+' : (r.op2 === 'Expenses' ? '-' : '');
-    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td style="color:var(--text-subtle);font-size:12px">' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + amtSign + money(r.amt) + '</td><td class="n" style="color:var(--text-muted)">' + (r.fee ? money(r.fee) : '—') + '</td><td class="n" style="color:#0284c7;font-weight:600">' + (r.cbx ? '+' + money(r.cbx) : '—') + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (c ? '<span class="tag" style="background:#f1f5f9;color:#334155;border-color:#cbd5e1">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" style="color:var(--primary);font-weight:600">edit</a>' : '') + '</td>' : '') + '</tr>';
+    const sign = r.op2 === 'Incomes' ? '+' : (r.op2 === 'Expenses' ? '-' : '');
+    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td style="color:var(--text-subtle);font-size:12px">' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + sign + money(r.amt) + '</td><td class="n" style="color:var(--text-muted)">' + (r.fee ? money(r.fee) : '—') + '</td><td class="n" style="color:#0284c7;font-weight:600">' + (r.cbx ? '+' + money(r.cbx) : '—') + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" style="color:var(--primary);font-weight:600">edit</a>' : '') + '</td>' : '') + '</tr>';
   }).join('');
   $('tbl').innerHTML = head + body;
   $('more').hidden = view.length <= shown; $('more').textContent = 'Show 200 more (' + (view.length - shown) + ' left)';
@@ -1099,16 +436,16 @@ function renderRecords() {
 /* ---------- Sheet 4: accounts + verification ---------- */
 function calc() {
   const A = {}, get = n => A[n] || (A[n] = {inn: 0, out: 0, fee: 0, cb: 0, cbE: 0, cbX: 0, feeDet: 0});
-  const t = {inc: 0, exp: 0, fee: 0, cb: 0, cbE: 0, cbX: 0, ign: []}, bad = [];
+  const t = {inc: 0, exp: 0, fee: 0, cb: 0, cbE: 0, cbX: 0, ign: []}, bad = [];   // cbE = separate Cash Back entries, cbX = extra column
   (cfg.accounts || []).forEach(get);
   rows.forEach(r => {
-    const isE = isCbDet(r.det);
+    const isE = isCbDet(r.det);   // a separate Cash Back entry: its amount is the cash back, its extra column is ignored (same rule as the Records tab)
     if (r.dep) { const a = get(r.dep); a.inn += r.amt; if (isE) a.cbE += r.amt; }
     if (r.wd) { const a = get(r.wd); a.out += r.amt; a.fee += r.fee; if (r.det === 'Fees') a.feeDet += r.amt; }
     if (r.op2 === 'Incomes') t.inc += r.amt; else if (r.op2 === 'Expenses') t.exp += r.amt;
     t.fee += r.fee;
     if (isE) t.cbE += r.amt;
-    if (cbp(r)) { t.cbX += cbp(r); get(CB_P_ACCOUNT).cbX += cbp(r); }
+    if (cbp(r)) { t.cbX += cbp(r); get(CB_P_ACCOUNT).cbX += cbp(r); }   // every P value counts, exactly like SUM(P2:P)
     const miss = (r.op2 === 'Incomes' && !r.dep) || (r.op2 === 'Expenses' && !r.wd) || (r.op2 === 'Between Acounts' && !(r.dep && r.wd)) || (r.fee && !r.wd) || !r.date;
     if (miss) bad.push(r);
   });
@@ -1123,25 +460,25 @@ function renderAccounts() {
   const body = names.map(n => {
     const a = A[n], open = +cfg.opening[n] || 0;
     const v = {
-      dep: a.inn - a.cbE,
-      out: a.out - a.feeDet,
-      fd: a.feeDet,
-      fc: a.fee,
-      fa: a.fee + a.feeDet,
-      cx: a.cbX,
-      ce: a.cbE,
-      ca: a.cbE + a.cbX
+      dep: a.inn - a.cbE,            // Deposited, without its cash back (Details = Cash Back entries)
+      out: a.out - a.feeDet,         // Withdrawn, without its fees (Details = Fees rows)
+      fd: a.feeDet,                  // Fees: main entries with Details = Fees
+      fc: a.fee,                     // Fees (Withdrawn records): the Fees column
+      fa: a.fee + a.feeDet,          // Fees (All)
+      cx: a.cbX,                     // Cash back: extra column of the withdrawn records
+      ce: a.cbE,                     // Cash back (Deposited records): Details = Cash Back entries
+      ca: a.cbE + a.cbX              // Cash back (all)
     };
     const credit = open + v.dep - v.out - v.fa + v.ca;
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
-    return '<tr><td><b>' + esc(n) + '</b></td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
+    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
-      '<td class="n" style="font-weight:700;color:' + (credit < 0 ? 'var(--neg)' : 'var(--pos)') + '">' + money(credit) + '</td></tr>';
+      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
   }).join('');
-  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited', 'n'], ['Withdrawn', 'n'], ['Fees', 'n'], ['Fees (WD)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Dep)', 'n'], ['Cash back (all)', 'n'], ['Balance / Credit', 'n']];
+  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['Credit', 'n']];
   $('acc').innerHTML = '<tr>' + TH.map(c => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr>' +
     (body || '<tr><td colspan="11" class="empty">No accounts found in Responses.</td></tr>') +
-    '<tr style="background:#f8fafc;font-weight:700"><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n" style="font-size:14px;color:var(--primary)"><b>' + money(S.credit) + '</b></td></tr>';
+    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td></tr>';
   const sumOpen = S.open, sumCredit = S.credit;
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
@@ -1150,11 +487,12 @@ function renderAccounts() {
   const unCb = rows.filter(r => r.cbIsEntry && !r.cbOf);
   const oldBackend = rows.length > 0 && rows.every(r => r.cbp === undefined);
   const checks = [
-    {ok: diff === 0, t: 'Account credit matches the operations ledger', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + extra-column cash back = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
-    {ok: bad.length === 0, t: 'Every transaction row has valid accounts and date values', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' transactions fully verified'},
-    {ok: todo.length === 0, t: 'Every manual operation has been assigned a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'All transactions categorized'},
-    {ok: !oldBackend, t: 'Cash back total ' + money(t.cb), s: oldBackend ? 'The backend is running in legacy mode.' : 'Separate Cash Back entries ' + money(t.cbE) + ' + column ' + (cbInfo ? cbInfo.letter : 'P') + ' = SUM ' + money(t.cbX)},
-    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched: rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All reward entries linked to operations'}
+    {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + extra-column cash back (cash back entries are already inside incomes) = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
+    {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
+    {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
+  ,
+    {ok: !oldBackend, t: 'Cash back total ' + money(t.cb), s: oldBackend ? 'The backend is still the old version (column P is not being read). Paste the new Code.gs and deploy a new version.' : 'Separate Cash Back entries ' + money(t.cbE) + ' + column ' + (cbInfo ? cbInfo.letter + (cbInfo.header ? ' ("' + esc(cbInfo.header) + '")' : '') : 'P') + ' = SUM(' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ') ' + money(t.cbX)},
+    {ok: unCb.length === 0, t: 'Every Cash Back entry is linked to its main operation', s: unCb.length ? unCb.length + ' entr' + (unCb.length > 1 ? 'ies' : 'y') + ' not matched (no earlier expense on that account with a 0.7% / 5% / 11% cash back): rows ' + unCb.slice(0, 12).map(r => r.r).join(', ') : 'All linked'}
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
   const n = checks.filter(c => !c.ok).length;
@@ -1164,7 +502,10 @@ function renderAccounts() {
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
 }
 
-/* ---------- Search box for table filtering ---------- */
+
+
+
+/* ---------- Search box for a table (rows are hidden, not removed; re-applied after every re-render) ---------- */
 function tableSearch(tbl, placeholder) {
   const inp = document.createElement('input');
   inp.type = 'search'; inp.className = 'tsearch'; inp.placeholder = placeholder || 'Search this table…';
@@ -1194,7 +535,7 @@ $('cmpRun').onclick = () => {
     if (!isNaN(v)) { sheet[first + i] = v; sTot += v; }
   });
   const dash = {}; let dTot = 0;
-  rows.forEach(r => {
+  rows.forEach(r => {                                   // main rows carry their extra column + linked entry; unlinked entries carry their own amount
     const v = r.cbx + (r.cbIsEntry && !r.cbOf ? r.amt : 0);
     if (v) { dash[r.r] = v; dTot += v; }
   });
@@ -1209,13 +550,13 @@ $('cmpRun').onclick = () => {
   $('cmpOut').innerHTML = '<div class="summary"><span>Sheet column <b>' + money(sTot) + '</b></span><span>Dashboard <b>' + money(dTot) + '</b></span><span>Difference <b>' + money(net) + '</b></span><span>Rows that differ <b>' + diffs.length + '</b></span></div>' +
     (diffs.length ? '<div class="tablewrap"><table><tr><th>Row</th><th>Date</th><th>Details</th><th>Account</th><th class="n">Sheet</th><th class="n">Dashboard</th><th class="n">Difference</th></tr>' +
       diffs.slice(0, 60).map(d => { const r = byRow[d.r] || {}; return '<tr><td>' + d.r + '</td><td>' + esc(r.date || '') + '</td><td>' + esc(r.det || '') + '</td><td>' + esc(r.wd || r.dep || '') + '</td><td class="n">' + money(d.a) + '</td><td class="n">' + money(d.b) + '</td><td class="n">' + money(d.b - d.a) + '</td></tr>'; }).join('') +
-      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--text-muted)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
-      '<p style="color:var(--text-muted)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences.</p>'
-      : '<p style="color:var(--pos);font-weight:600">Every row matches perfectly with sheet column.</p>');
+      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--mute)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
+      '<p style="color:var(--mute)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
+      : '<p style="color:var(--pos)">Every row matches.</p>');
   const ct = $('cmpOut').querySelector('table'); if (ct) tableSearch(ct, 'Search the differing rows…');
 };
 
-/* ---------- Categories tab ---------- */
+/* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
 const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
 function renderCatView() {
   const groups = {};
@@ -1238,9 +579,9 @@ function renderCatView() {
   const sel = (subTab === '*' ? list : subMap[subTab]).filter(r => { if (!cq.length) return true; const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.det, r.cat, r.sub, r.ex].join(' ').toLowerCase(); return cq.every(w => s.includes(w)); }).slice().reverse();
   const exp = sel.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
   const inc = sel.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
-  $('catSum').innerHTML = '<span>Category <b>' + esc(catTab) + (subTab !== '*' ? ' / ' + esc(subTab || '(no sub-category)') : '') + '</b></span><span>Transactions <b>' + sel.length + '</b></span><span>Expenses <b style="color:var(--neg)">-' + money(exp) + ' SAR</b></span><span>Incomes <b style="color:var(--pos)">+' + money(inc) + ' SAR</b></span>';
+  $('catSum').innerHTML = '<span>' + esc(catTab) + (subTab !== '*' ? ' / ' + esc(subTab || '(no sub-category)') : '') + '</span><span>Rows <b>' + sel.length + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Incomes <b>' + money(inc) + '</b></span>';
   $('cvTbl').innerHTML = '<tr><th>Row</th><th>Date</th><th>Operation</th><th>Account</th><th class="n">Amount</th><th>Details</th><th>Sub-category</th><th>Extras</th></tr>' +
-    sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + (r.op2 === 'Incomes' ? '+' : '-') + money(r.amt) + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (r.sub ? '<span class="tag">' + esc(r.sub) + '</span>' : '—') + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
+    sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
     (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '');
 }
 $('cvQ').oninput = () => renderCatView();
@@ -1257,7 +598,7 @@ function renderCats() {
   if (!list.length) { $('ctbl').innerHTML = '<tr><td class="empty">Nothing to categorize. Manual rows (My Relatives, Travels, Sakani, …) will appear here.</td></tr>'; return; }
   $('ctbl').innerHTML = '<tr><th></th><th>Row</th><th>Date</th><th>Details</th><th class="n">Amount</th><th>Extras</th><th>Category</th><th>Sub-category</th></tr>' + list.slice(0, 300).map(r => {
     const p = pend[r.r] || {cat: r.cat, sub: r.sub};
-    return '<tr><td><input type="checkbox" class="ck" data-r="' + r.r + '"></td><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td><b>' + esc(r.det) + '</b></td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.ex) + '</td><td><select data-r="' + r.r + '" data-k="cat"><option value="">—</option>' + opt(cats(), p.cat) + '</select></td><td><input type="text" list="subList" data-r="' + r.r + '" data-k="sub" value="' + esc(p.sub) + '"></td></tr>';
+    return '<tr><td><input type="checkbox" class="ck" data-r="' + r.r + '"></td><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.det) + '</td><td class="n">' + money(r.amt) + '</td><td>' + esc(r.ex) + '</td><td><select data-r="' + r.r + '" data-k="cat"><option value="">—</option>' + opt(cats(), p.cat) + '</select></td><td><input type="text" list="subList" data-r="' + r.r + '" data-k="sub" value="' + esc(p.sub) + '"></td></tr>';
   }).join('');
   $('saveCats').disabled = !Object.keys(pend).length;
 }
@@ -1273,10 +614,7 @@ function showTab(t) {
   ['records', 'accounts', 'catview', 'cats', 'add'].forEach(id => $(id).hidden = id !== t);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
 }
-$('tabs').onclick = e => {
-  const btn = e.target.closest('button');
-  if (btn && btn.dataset.t) showTab(btn.dataset.t);
-};
+$('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
 $('status').onclick = () => showTab('accounts');
 $('reload').onclick = load;
 $('foldCb').onchange = () => { shown = 200; renderRecords(); };
@@ -1301,7 +639,7 @@ $('addAcc').onclick = () => {
   cfg.accounts.push(n);
   const o = parseFloat($('newAccOpen').value); if (!isNaN(o)) cfg.opening[n] = o;
   $('newAcc').value = ''; $('newAccOpen').value = '';
-  msg.style.color = 'var(--text-muted)'; msg.textContent = 'Saving…';
+  msg.style.color = 'var(--mute)'; msg.textContent = 'Saving…';
   google.script.run.withSuccessHandler(() => { msg.style.color = 'var(--pos)'; msg.textContent = 'Account "' + n + '" added.'; })
     .withFailureHandler(e => { msg.style.color = 'var(--neg)'; msg.textContent = 'Save failed: ' + (e && e.message || e); }).dashSaveCfg(JSON.stringify(cfg));
   refreshAccFilter(); aeRefillAccounts(); renderAccounts();
@@ -1341,15 +679,15 @@ $('saveCats').onclick = () => {
   }).withFailureHandler(e => { $('saveCats').disabled = false; $('saveMsg').textContent = 'Save failed: ' + (e.message || e); }).dashSaveCats(items);
 };
 
-/* ---------- Add entry (MyBudjet form inside dashboard) ---------- */
+/* ---------- Add entry (MyBudjet form inside the dashboard) ---------- */
 const AE_ACC = ['Ahli Credit','Ahli Credit2','Ahli','SAIB','SAIB Credit','Riyad','Awwal Sabb','STCPay','Fransi','Rajhi','Rajhi Credit','Cash','Other'];
 function aeNorm(s) {
   if (!s) return '';
   const map = {'٠':0,'١':1,'٢':2,'٣':3,'٤':4,'٥':5,'٦':6,'٧':7,'٨':8,'٩':9};
   return s.replace(/[٠-٩]/g, d => map[d]).replace(/٫/g, '.').replace(/[٬,\s]/g, '');
 }
-
-/* SMS parser */
+/* ---------- SMS parser ---------- */
+/* SMS -> MyBudjet fields. Pure function, no DOM. */
 function parseSms(raw, now) {
   now = now || new Date();
   var notes = [];
@@ -1367,6 +705,7 @@ function parseSms(raw, now) {
   if (!s) return r;
   var T = function (re) { return re.test(s); };
 
+  /* ---- accounts ---- */
   function sourceAccount() {
     if (T(/\*{1,3}5465/)) return 'Ahli Credit2';
     if (T(/\*{1,3}0744|X{1,3}0744/)) return 'Ahli Credit';
@@ -1402,6 +741,7 @@ function parseSms(raw, now) {
     return '';
   }
 
+  /* ---- amount ---- */
   var am = s.match(/(?:مبلغ|المبلغ|Amount|Fill|بـ|ب)\u0640?\s*:?\s*(?:(SAR|SR|USD|ر\.?\s?س)\s*)?(\d[\d,]*(?:\.\d+)?)\s*(SAR|SR|USD|ر\.?\s?س)?/i);
   var amount = null;
   if (am) {
@@ -1409,12 +749,13 @@ function parseSms(raw, now) {
     var cur = (am[1] || am[3] || '').toUpperCase();
     if (cur === 'USD') { amount = amount * 3.75; notes.push('USD amount converted at 3.75'); }
   }
-  if (/قسط تمويل/.test(s)) {
+  if (/قسط تمويل/.test(s)) {           // several instalments in one SMS: add them up
     var tot = 0, g, re = /القسط\s*:?\s*SAR\s*([\d,]+(?:\.\d+)?)/g;
     while ((g = re.exec(s))) tot += parseFloat(g[1].replace(/,/g, ''));
     if (tot > 0) amount = tot;
   }
 
+  /* ---- classify ---- */
   var isOut = /شراء|سحب|خصم|سداد|اضافة مبلغ|POS|Internal (?:outward )?transfer|حوالة|تحويل|الرقم السري لمره واحده/i.test(s);
   if (/استرجاع نقدي|cash\s*back/i.test(s)) {
     r.type = 'Incomes'; r.deposited = cardAccount(); r.details = 'Cash Back';
@@ -1439,6 +780,7 @@ function parseSms(raw, now) {
   if (r.type === 'Other' && !r.withdrawn) notes.push('Account not recognised. Choose "Withdrawn".');
   if ((r.type === 'Incomes' || r.operationType === 'Between Acounts') && !r.deposited) notes.push('Account not recognised. Choose "Deposited".');
 
+  /* ---- fee (your sheet records amount + fee) ---- */
   var fee = null, fm = s.match(/الرسوم\s*:?\s*(?:SAR|SR)?\s*(\d+(?:\.\d+)?)/);
   if (fm) fee = parseFloat(fm[1]);
   if (r.type === 'Other') r.fees = '0';
@@ -1449,6 +791,7 @@ function parseSms(raw, now) {
   if (amount !== null) r.amount = String(Math.round(amount * 100) / 100);
   else if (r.type) notes.push('Amount not found.');
 
+  /* ---- date / time ---- */
   var acct = r.type === 'Other' ? r.withdrawn : r.deposited;
   var mk = function (y, mo, d, h, mi) {
     if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return false;
@@ -1457,7 +800,7 @@ function parseSms(raw, now) {
     r.date = dt.getFullYear() + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
     r.h = String(h); r.m = String(mi); return true;
   };
-  var noYear = function (mo, d, h, mi) {
+  var noYear = function (mo, d, h, mi) {          // SMS without a year: use this year (or last, if that would be the future)
     var y = now.getFullYear();
     if (new Date(y, mo - 1, d) - now > 2 * 86400000) y -= 1;
     return mk(y, mo, d, h, mi);
@@ -1479,13 +822,17 @@ function parseSms(raw, now) {
   return r;
 }
 
+
+/* ---------- Cash Back amount from the Cash Back SMS ---------- */
 function cashBackAmount(text){
   const r = parseSms(text, new Date());
   if(r.amount) return r.amount;
+  // looser fallback: a number next to SAR / SR / ريال
   const s = String(text).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/٫/g, ".").replace(/٬/g, "");
   const m = s.match(/(?:SAR|SR|ريال|ر\.?\s?س)\s*:?\s*(\d[\d,]*(?:\.\d+)?)/i) || s.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:SAR|SR|ريال|ر\.?\s?س)/i);
   return m ? String(parseFloat(m[1].replace(/,/g, ""))) : "";
 }
+
 
 function aeFillSel(id, list, ph) {
   $(id).innerHTML = (ph ? '<option value="">' + ph + '</option>' : '') + list.map(v => '<option>' + esc(v) + '</option>').join('');
@@ -1556,7 +903,7 @@ function aeApplySms(r) {
   if (r.details) pick('aeDet', r.details); else if (r.type !== 'Other') $('aeDet').value = '';
   aeRefresh();
   st.style.color = notes ? 'var(--warn)' : 'var(--pos)';
-  st.textContent = 'Form filled from SMS. Check values, then submit.' + (notes ? ' ' + notes : '');
+  st.textContent = 'Form filled from the SMS. Check the values, then submit.' + (notes ? ' ' + notes : '');
 }
 let aeT1 = null, aeT2 = null;
 function aeOnSms(delay) {
@@ -1588,7 +935,7 @@ async function aePaste(id, after) {
   } catch (e) {
     $(id).focus();
     $('aeSmsStatus').style.color = 'var(--warn)';
-    $('aeSmsStatus').textContent = 'Clipboard access not allowed. Paste manually into the box.';
+    $('aeSmsStatus').textContent = 'The browser blocked clipboard access here. Long-press the box and choose Paste.';
   }
 }
 $('aePasteSms').onclick = () => aePaste('aeSms', aeOnSms);
@@ -1632,18 +979,18 @@ $('aeSave').onclick = () => {
     cbAmount: s.cb ? $('aeCbAmt').value : '',
     cbSms: s.cb ? $('aeCbSms').value.trim() : ''
   };
-  $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--text-muted)'; $('aeMsg').textContent = 'Saving…';
+  $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--mute)'; $('aeMsg').textContent = 'Saving…';
   google.script.run.withSuccessHandler(res => {
     const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
       date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
       amt2: +d.cbAmount || 0, cbp: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
     r.op2 = normOp(r); rows.push(r);
-    rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || (a.ts || '').localeCompare(b.ts || ''));
+    rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
     linkCb(); refreshAccFilter();
     renderAll();
     aeReset();
     $('aeSave').disabled = false;
-    $('aeMsg').style.color = 'var(--pos)'; $('aeMsg').textContent = 'Saved to the ledger as row ' + res.row + '.';
+    $('aeMsg').style.color = 'var(--pos)'; $('aeMsg').textContent = 'Saved to the sheet as row ' + res.row + '.';
   }).withFailureHandler(e => {
     $('aeSave').disabled = false;
     $('aeMsg').style.color = 'var(--neg)'; $('aeMsg').textContent = 'Save failed: ' + (e && e.message || e);
@@ -1653,4 +1000,5 @@ aeDefaults(); aeRefresh();
 
 load();
 </script>
-</body></html>
+</body>
+</html>
