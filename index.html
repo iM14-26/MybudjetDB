@@ -6,69 +6,579 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MyBudjet Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  --paper:#f2f5f4; --card:#fff; --ink:#17262b; --mute:#63757b; --rule:#d8dfdd;
-  --accent:#0c6a62; --accent-soft:#dcefec; --neg:#ae3a2b; --pos:#1d7848; --warn:#a96d12; --warn-soft:#f8ecd2;
+:root {
+  /* Premium modern fintech palette */
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f1f5f9;
+  --bg-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --border-focus: #0d9488;
+  --border-subtle: #f1f5f9;
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  --primary: #0f766e;
+  --primary-hover: #115e59;
+  --primary-soft: #ccfbf1;
+  --primary-text: #134e4a;
+
+  --pos: #059669;
+  --pos-soft: #ecfdf5;
+  --neg: #e11d48;
+  --neg-soft: #ffe4e6;
+  --warn: #d97706;
+  --warn-soft: #fef3c7;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5}
-h1{font-size:18px;margin:0;font-weight:600;letter-spacing:-.01em}
-#status{padding:5px 12px;border-radius:999px;font-weight:500;font-size:13px;border:1px solid var(--rule);background:var(--paper);cursor:pointer}
-#status.ok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-#status.bad{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
-nav{display:flex;gap:4px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--rule);overflow-x:auto}
-nav button{border:0;background:none;padding:11px 14px;font:inherit;color:var(--mute);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
-nav button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
-main{padding:18px 20px 60px;max-width:1280px;margin:0 auto}
-.panel{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:14px;margin-bottom:14px}
-.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-label.f{display:flex;flex-direction:column;gap:3px;color:var(--mute);font-size:12px}
-select,input[type=text],input[type=number],input[type=search]{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;min-width:0}
-select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.chip{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;color:var(--mute)}
-.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.group-title{font-size:12px;color:var(--mute);margin-top:12px;display:flex;gap:10px;align-items:center}
-.link{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
-.btn{font:inherit;padding:7px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
-.btn.alt{background:#fff;color:var(--accent)}
-.btn:disabled{opacity:.5;cursor:default}
-.summary{display:flex;gap:22px;flex-wrap:wrap;margin:0 0 10px;color:var(--mute)}
-.summary b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
-.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:#fff}
-table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--rule);white-space:nowrap;vertical-align:middle}
-th{background:var(--paper);font-weight:600;font-size:12px;color:var(--mute);position:sticky;top:0}
-td.n,th.n{text-align:right}
-td.sms{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
-tr.exp td.amt{color:var(--neg)} tr.inc td.amt{color:var(--pos)} tr.btw td.amt{color:var(--mute)}
-tr.todo td:first-child{box-shadow:inset 3px 0 var(--warn)}
-.tag{display:inline-block;padding:1px 7px;border-radius:3px;background:var(--paper);font-size:12px}
-.check{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--rule)}
-.check:last-child{border-bottom:0}
-.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
-.dot.ok{background:var(--pos)} .dot.bad{background:var(--warn)}
-.check small{color:var(--mute);display:block}
-.empty{padding:26px;text-align:center;color:var(--mute)}
-#err{display:none;background:#fbe6e2;border:1px solid var(--neg);color:var(--neg);padding:10px 14px;border-radius:6px;margin-bottom:14px}
-#loading{padding:40px;text-align:center;color:var(--mute)}
-.inline{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
-td input[type=number]{width:120px;text-align:right}
-textarea{font:inherit;color:var(--ink);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:#fff;width:100%;resize:vertical}
-.hide{display:none!important}
-.tsearch{display:block;width:100%;max-width:380px;margin:0 0 10px;padding:7px 10px;border:1px solid var(--rule);border-radius:4px;font:inherit;color:var(--ink);background:#fff}
-td.acc{cursor:pointer}
-td.acc:hover{text-decoration:underline}
-nav button{font-size:inherit}
-.invalid{border-color:var(--neg)!important;background:#fbe6e2!important}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header & Navigation Bar */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 28px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.94);
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary) 0%, #14b8a6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+}
+
+h1 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+
+#status {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+#status:hover {
+  filter: brightness(0.97);
+  box-shadow: var(--shadow-xs);
+}
+#status.ok {
+  background: var(--primary-soft);
+  border-color: rgba(15, 118, 110, 0.25);
+  color: var(--primary-text);
+}
+#status.bad {
+  background: var(--warn-soft);
+  border-color: rgba(217, 119, 6, 0.3);
+  color: #92400e;
+}
+
+nav#tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 28px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav#tabs::-webkit-scrollbar { display: none; }
+nav#tabs button {
+  border: 0;
+  background: none;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  border-radius: 4px 4px 0 0;
+}
+nav#tabs button:hover {
+  color: var(--text-main);
+  background-color: var(--bg-page);
+}
+nav#tabs button.on {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* Layout container */
+main {
+  padding: 24px 28px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Clean Structured Panels */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.2s ease;
+}
+.panel:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+details.panel {
+  padding: 14px 20px;
+}
+details.panel summary {
+  outline: none;
+  font-weight: 600;
+}
+
+/* Form Controls & Labels */
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+label.f {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+select,
+input[type=text],
+input[type=number],
+input[type=search],
+input[type=date],
+textarea {
+  font-family: inherit;
+  color: var(--text-main);
+  font-size: 13.5px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  min-width: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  padding-right: 28px;
+  appearance: none;
+}
+select:focus,
+input:focus,
+textarea:focus,
+button:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+/* Chips & Quick Filters */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+.chip {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.12s ease;
+}
+.chip:hover {
+  background: var(--bg-card-subtle);
+  color: var(--text-main);
+  border-color: #cbd5e1;
+}
+.chip.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.25);
+}
+
+.group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 16px;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.link {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: none;
+  padding: 0;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.link:hover {
+  color: var(--primary-hover);
+}
+
+/* Modern Buttons */
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-xs);
+}
+.btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+.btn.alt {
+  background: #ffffff;
+  color: var(--text-main);
+  border-color: var(--border);
+}
+.btn.alt:hover:not(:disabled) {
+  background: var(--bg-card-subtle);
+  border-color: #cbd5e1;
+  color: var(--primary);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* KPI Metrics / Summary Bar */
+.summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  align-items: stretch;
+}
+.summary > span {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  box-shadow: var(--shadow-xs);
+}
+.summary b {
+  color: var(--text-main);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+}
+
+/* High-polish Fintech Data Tables */
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid #cbd5e1;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+tr:hover td {
+  background-color: #f8fafc;
+}
+
+td.n, th.n {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+}
+td.amt {
+  font-weight: 600;
+}
+td.sms {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-subtle);
+  font-size: 12px;
+}
+
+tr.exp td.amt { color: var(--neg); }
+tr.inc td.amt { color: var(--pos); }
+tr.btw td.amt { color: var(--text-muted); }
+tr.todo td:first-child {
+  box-shadow: inset 4px 0 var(--warn);
+  background-color: rgba(254, 243, 199, 0.25);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+td.acc {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-main);
+  transition: color 0.15s ease;
+}
+td.acc:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Verification list */
+.check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.check:last-child {
+  border-bottom: 0;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex: none;
+}
+.dot.ok {
+  background: var(--pos);
+  box-shadow: 0 0 0 3px var(--pos-soft);
+}
+.dot.bad {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-soft);
+}
+.check small {
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+#err {
+  display: none;
+  background: var(--neg-soft);
+  border: 1px solid #fecdd3;
+  color: var(--neg);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+#loading {
+  padding: 60px;
+  text-align: center;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+td input[type=number] {
+  width: 120px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 4px 8px;
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.hide { display: none !important; }
+.tsearch {
+  display: block;
+  width: 100%;
+  max-width: 380px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+}
+.invalid {
+  border-color: var(--neg) !important;
+  background: var(--neg-soft) !important;
+}
+
+/* Category View Navigation Sub-Tabs */
+#catTabs {
+  display: flex;
+  background: #ffffff;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+#catTabs button {
+  border: 0;
+  background: none;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+#catTabs button:hover {
+  color: var(--text-main);
+  background: var(--bg-card-subtle);
+}
+#catTabs button.on {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>MyBudjet ledger</h1>
+  <div class="brand-wrapper">
+    <div class="brand-icon">M</div>
+    <h1>MyBudjet ledger</h1>
+  </div>
   <div style="display:flex;gap:10px;align-items:center">
     <button class="btn alt" id="reload">Reload data</button>
     <div id="status" title="Open verification">Loading…</div>
@@ -101,14 +611,16 @@ nav button{font-size:inherit}
       <div class="chips" id="chipsD"></div>
     </div>
     <div class="summary" id="sum"></div>
-    <label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--mute)"><input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:0 0 12px;color:var(--text-muted);font-size:13px;cursor:pointer">
+      <input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)
+    </label>
     <div class="tablewrap"><table id="tbl"></table></div>
     <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
   </section>
 
   <section id="accounts" hidden>
     <details class="panel" id="verif">
-      <summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
+      <summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--text-muted);font-weight:500;font-size:12.5px"></span></summary>
       <div id="checks" style="margin-top:10px"></div>
     </details>
     <div class="panel">
@@ -116,17 +628,17 @@ nav button{font-size:inherit}
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
         <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
         <button class="btn alt" id="addAcc">Add account</button>
-        <span id="accMsg" style="color:var(--mute)"></span>
+        <span id="accMsg" style="color:var(--text-muted)"></span>
       </div>
     </div>
     <div class="tablewrap"><table id="acc"></table></div>
-    <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).
-      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.
-      Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.
+    <p style="color:var(--text-muted);font-size:12.5px;line-height:1.6;margin-top:12px">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).<br>
+      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.<br>
+      Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.<br>
       Opening balances are saved with the web app.</p>
     <details class="panel" style="margin-top:14px">
       <summary style="cursor:pointer"><b>Compare cash back with a column from your sheet</b></summary>
-      <p style="color:var(--mute)">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
+      <p style="color:var(--text-muted);font-size:12.5px">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
       <div class="inline"><label class="f">First row<input type="number" id="cmpFirst" value="2" style="width:90px"></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
       <textarea id="cmpData" rows="5" placeholder="Paste the column here..." style="margin-top:8px"></textarea>
       <div id="cmpOut" style="margin-top:10px"></div>
@@ -134,9 +646,9 @@ nav button{font-size:inherit}
   </section>
 
   <section id="catview" hidden>
-    <nav id="catTabs" style="padding:0;margin-bottom:12px;border:1px solid var(--rule);border-radius:6px"></nav>
+    <nav id="catTabs"></nav>
     <div class="summary" id="catSum"></div>
-    <div class="chips" id="subTabs" style="margin:0 0 12px"></div>
+    <div class="chips" id="subTabs" style="margin:0 0 14px"></div>
     <input type="search" id="cvQ" class="tsearch" placeholder="Search rows in this category…">
     <div class="tablewrap"><table id="cvTbl"></table></div>
   </section>
@@ -147,25 +659,26 @@ nav button{font-size:inherit}
         <label class="f">Category<select id="bCat"></select></label>
         <label class="f">Sub-category<input type="text" id="bSub" list="subList"></label>
         <button class="btn alt" id="bApply">Apply to checked rows</button>
-        <label style="display:flex;gap:6px;align-items:center;margin-left:auto"><input type="checkbox" id="showAll"> Show already categorized</label>
+        <label style="display:flex;gap:6px;align-items:center;margin-left:auto;color:var(--text-muted);font-size:12.5px;cursor:pointer"><input type="checkbox" id="showAll"> Show already categorized</label>
       </div>
-      <div class="inline" style="margin-top:12px">
+      <div class="inline" style="margin-top:14px">
         <label class="f">New category<input type="text" id="newCat"></label>
         <button class="btn alt" id="addCat">Add category</button>
       </div>
     </div>
     <datalist id="subList"></datalist>
     <div class="tablewrap"><table id="ctbl"></table></div>
-    <p><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--mute)"></span></p>
+    <p style="margin-top:14px"><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--text-muted);margin-left:8px"></span></p>
   </section>
+
   <section id="add" hidden>
     <div class="panel">
       <label class="f">Bank SMS (paste here and the form fills itself)
         <textarea id="aeSms" rows="4" placeholder="Paste the full bank SMS here..."></textarea>
       </label>
-      <div class="inline" style="margin-top:8px">
+      <div class="inline" style="margin-top:10px">
         <button class="btn alt" id="aePasteSms" type="button">Paste from clipboard</button>
-        <span id="aeSmsStatus" style="color:var(--mute)"></span>
+        <span id="aeSmsStatus" style="color:var(--text-muted);font-size:12.5px"></span>
       </div>
     </div>
     <div class="panel">
@@ -186,15 +699,14 @@ nav button{font-size:inherit}
         <label class="f">Cash back<select id="aeCb"></select></label>
         <label class="f hide" id="aeCbAmtBox">Cash back amount<input type="text" id="aeCbAmt" inputmode="decimal" placeholder="0.00"></label>
       </div>
-      <label class="f hide" id="aeCbSmsBox" style="margin-top:10px">Cash back SMS (optional)
+      <label class="f hide" id="aeCbSmsBox" style="margin-top:12px">Cash back SMS (optional)
         <textarea id="aeCbSms" rows="2" placeholder="Cash back notification SMS..."></textarea>
-        <span><button class="btn alt" id="aePasteCb" type="button" style="margin-top:6px">Paste from clipboard</button></span>
+        <span><button class="btn alt" id="aePasteCb" type="button" style="margin-top:8px">Paste from clipboard</button></span>
       </label>
-      <p id="aeErr" style="color:var(--neg);margin:10px 0 0"></p>
-      <p style="margin:10px 0 0"><button class="btn" id="aeSave" type="button">Submit entry</button> <span id="aeMsg" style="color:var(--mute)"></span></p>
+      <p id="aeErr" style="color:var(--neg);margin:12px 0 0;font-weight:500"></p>
+      <p style="margin:16px 0 0"><button class="btn" id="aeSave" type="button">Submit entry</button> <span id="aeMsg" style="color:var(--text-muted);margin-left:8px"></span></p>
     </div>
   </section>
-
 </main>
 
 <script>
@@ -429,7 +941,7 @@ function renderAccounts() {
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
     return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
-      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
+      '<td class="n" style="font-weight:700;color:' + (credit < 0 ? 'var(--neg)' : 'var(--text-main)') + '">' + money(credit) + '</td></tr>';
   }).join('');
   const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['Credit', 'n']];
   $('acc').innerHTML = '<tr>' + TH.map(c => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr>' +
@@ -457,9 +969,6 @@ function renderAccounts() {
   $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
 }
-
-
-
 
 /* ---------- Search box for a table (rows are hidden, not removed; re-applied after every re-render) ---------- */
 function tableSearch(tbl, placeholder) {
@@ -506,8 +1015,8 @@ $('cmpRun').onclick = () => {
   $('cmpOut').innerHTML = '<div class="summary"><span>Sheet column <b>' + money(sTot) + '</b></span><span>Dashboard <b>' + money(dTot) + '</b></span><span>Difference <b>' + money(net) + '</b></span><span>Rows that differ <b>' + diffs.length + '</b></span></div>' +
     (diffs.length ? '<div class="tablewrap"><table><tr><th>Row</th><th>Date</th><th>Details</th><th>Account</th><th class="n">Sheet</th><th class="n">Dashboard</th><th class="n">Difference</th></tr>' +
       diffs.slice(0, 60).map(d => { const r = byRow[d.r] || {}; return '<tr><td>' + d.r + '</td><td>' + esc(r.date || '') + '</td><td>' + esc(r.det || '') + '</td><td>' + esc(r.wd || r.dep || '') + '</td><td class="n">' + money(d.a) + '</td><td class="n">' + money(d.b) + '</td><td class="n">' + money(d.b - d.a) + '</td></tr>'; }).join('') +
-      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--mute)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
-      '<p style="color:var(--mute)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
+      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--text-muted)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
+      '<p style="color:var(--text-muted)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
       : '<p style="color:var(--pos)">Every row matches.</p>');
   const ct = $('cmpOut').querySelector('table'); if (ct) tableSearch(ct, 'Search the differing rows…');
 };
@@ -595,7 +1104,7 @@ $('addAcc').onclick = () => {
   cfg.accounts.push(n);
   const o = parseFloat($('newAccOpen').value); if (!isNaN(o)) cfg.opening[n] = o;
   $('newAcc').value = ''; $('newAccOpen').value = '';
-  msg.style.color = 'var(--mute)'; msg.textContent = 'Saving…';
+  msg.style.color = 'var(--text-muted)'; msg.textContent = 'Saving…';
   google.script.run.withSuccessHandler(() => { msg.style.color = 'var(--pos)'; msg.textContent = 'Account "' + n + '" added.'; })
     .withFailureHandler(e => { msg.style.color = 'var(--neg)'; msg.textContent = 'Save failed: ' + (e && e.message || e); }).dashSaveCfg(JSON.stringify(cfg));
   refreshAccFilter(); aeRefillAccounts(); renderAccounts();
@@ -778,7 +1287,6 @@ function parseSms(raw, now) {
   return r;
 }
 
-
 /* ---------- Cash Back amount from the Cash Back SMS ---------- */
 function cashBackAmount(text){
   const r = parseSms(text, new Date());
@@ -788,7 +1296,6 @@ function cashBackAmount(text){
   const m = s.match(/(?:SAR|SR|ريال|ر\.?\s?س)\s*:?\s*(\d[\d,]*(?:\.\d+)?)/i) || s.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:SAR|SR|ريال|ر\.?\s?س)/i);
   return m ? String(parseFloat(m[1].replace(/,/g, ""))) : "";
 }
-
 
 function aeFillSel(id, list, ph) {
   $(id).innerHTML = (ph ? '<option value="">' + ph + '</option>' : '') + list.map(v => '<option>' + esc(v) + '</option>').join('');
@@ -935,7 +1442,7 @@ $('aeSave').onclick = () => {
     cbAmount: s.cb ? $('aeCbAmt').value : '',
     cbSms: s.cb ? $('aeCbSms').value.trim() : ''
   };
-  $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--mute)'; $('aeMsg').textContent = 'Saving…';
+  $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--text-muted)'; $('aeMsg').textContent = 'Saving…';
   google.script.run.withSuccessHandler(res => {
     const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
       date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
