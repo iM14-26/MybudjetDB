@@ -1,8 +1,8 @@
 /* MyBudjet service worker: lets the app open instantly and install on Android.
    The page is fetched from the network first (so updates arrive), the cache is only the offline fallback.
    Calls to Apps Script and Google Fonts are never cached or touched. */
-const CACHE = 'mybudjet-v2';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'mybudjet-v3';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled(SHELL.map(u => c.add(u)))).then(() => self.skipWaiting()));   // one missing file must not break the install
