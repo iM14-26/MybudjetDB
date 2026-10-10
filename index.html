@@ -130,11 +130,11 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
   </div>
 </header>
 <nav id="tabs">
-  <button data-t="accounts" class="on"><span class="material-symbols-outlined">account_balance</span> Accounts</button>
+  <button data-t="add" class="on"><span class="material-symbols-outlined">add_circle</span> New Entry</button>
+  <button data-t="accounts"><span class="material-symbols-outlined">account_balance</span> Accounts</button>
   <button data-t="records"><span class="material-symbols-outlined">receipt_long</span> Records</button>
   <button data-t="catview"><span class="material-symbols-outlined">pie_chart</span> Categories</button>
   <button data-t="cats"><span class="material-symbols-outlined">label</span> Categorize</button>
-  <button data-t="add"><span class="material-symbols-outlined">add_circle</span> Add entry</button>
 </nav>
 <main>
   <div id="err"></div>
@@ -167,10 +167,8 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
 
   <section id="accounts" hidden>
     <details class="panel" id="accTools">
-      <summary class="fsum"><b>Search, columns &amp; add account</b><span class="hint" id="accColsHint"></span></summary>
-      <div class="group-title" style="margin-top:14px">Search</div>
-      <div id="accSearchBox" style="margin-top:8px"></div>
-      <div class="group-title">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
+      <summary class="fsum"><b>Columns &amp; add account</b><span class="hint" id="accColsHint"></span></summary>
+      <div class="group-title" style="margin-top:14px">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
       <div class="chips" id="accCols"></div>
       <div class="group-title" style="margin-top:20px">Add account</div>
       <div class="inline" style="margin-top:8px">
@@ -544,7 +542,6 @@ function tableSearch(tbl, placeholder, mount) {
   new MutationObserver(apply).observe(tbl, {childList: true});
   return inp;
 }
-tableSearch($('acc'), 'Search accounts…', $('accSearchBox'));
 tableSearch($('ctbl'), 'Search rows to categorize…');
 
 /* ---------- Accounts: hide / show columns (Account and Credit always stay) ---------- */
