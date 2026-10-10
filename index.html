@@ -257,11 +257,10 @@ td.act{white-space:nowrap}
 
   <section id="accounts" hidden>
     <details class="panel" id="setBox">
-      <summary class="fsum"><b>Settings</b><span class="hint" id="accColsHint"></span></summary>
+      <summary class="fsum"><b>Settings</b></summary>
       <nav id="setTabs"><button type="button" data-t="filter" class="on">Filter</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button></nav>
       <div id="setFilter">
-      <div class="inline" style="margin-top:14px;gap:12px"><button class="btn alt" id="accClearAll" type="button">Cancel all filters</button><span style="color:var(--text-muted);font-size:12.5px">Shows every column and clears the Records filters</span></div>
-      <div class="group-title" style="margin-top:18px">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
+      <div class="group-title" style="margin-top:18px">Columns <button class="link" id="accColsAll" type="button">show all</button><button class="link" id="accColsNone" type="button">hide all</button></div>
       <div class="chips" id="accCols"></div>
       <div class="group-title" style="margin-top:20px">Add account</div>
       <div class="inline" style="margin-top:8px">
@@ -692,7 +691,6 @@ function applyAccCols() {
   const t = $('acc'); if (!t.rows.length || t.rows[0].cells.length < 11) return;
   [...t.rows].forEach(tr => { if (tr.cells.length < 11) return; for (let i = 1; i <= 9; i++) tr.cells[i].style.display = accHide.has(i) ? 'none' : ''; });
   $('accCols').innerHTML = [...Array(9)].map((_, k) => { const i = k + 1; return '<button class="chip' + (accHide.has(i) ? '' : ' on') + '" data-i="' + i + '" type="button">' + esc(t.rows[0].cells[i].textContent) + '</button>'; }).join('');
-  $('accColsHint').textContent = accHide.size ? accHide.size + ' columns hidden' : '';
 }
 new MutationObserver(applyAccCols).observe($('acc'), {childList: true});
 $('accCols').onclick = e => {
@@ -701,7 +699,7 @@ $('accCols').onclick = e => {
   try { localStorage.setItem('mb_acc_hide', JSON.stringify([...accHide])); } catch (er) { /* ignore */ }
   applyAccCols();
 };
-$('accClearAll').onclick = () => { $('accColsAll').onclick(); clearRecordFilters(); };
+$('accColsNone').onclick = () => { for (let i = 1; i <= 9; i++) accHide.add(i); try { localStorage.setItem('mb_acc_hide', JSON.stringify([...accHide])); } catch (er) { /* ignore */ } applyAccCols(); };
 $('accColsAll').onclick = () => { accHide.clear(); try { localStorage.removeItem('mb_acc_hide'); } catch (er) { /* ignore */ } applyAccCols(); };
 
 
