@@ -130,8 +130,8 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
   </div>
 </header>
 <nav id="tabs">
-  <button data-t="records" class="on"><span class="material-symbols-outlined">receipt_long</span> Records</button>
-  <button data-t="accounts"><span class="material-symbols-outlined">account_balance</span> Accounts &amp; verification</button>
+  <button data-t="accounts" class="on"><span class="material-symbols-outlined">account_balance</span> Accounts</button>
+  <button data-t="records"><span class="material-symbols-outlined">receipt_long</span> Records</button>
   <button data-t="catview"><span class="material-symbols-outlined">pie_chart</span> Categories</button>
   <button data-t="cats"><span class="material-symbols-outlined">label</span> Categorize</button>
   <button data-t="add"><span class="material-symbols-outlined">add_circle</span> Add entry</button>
@@ -141,9 +141,10 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
   <div id="loading"><div class="spinner"></div><span>Reading the Responses sheet…</span></div>
 
   <section id="records" hidden>
-    <details class="panel" id="recFilters">
-      <summary class="fsum"><b>Filters</b><span class="hint" id="filtHint"></span></summary>
-      <div class="controls" style="margin-top:12px">
+    <details class="panel" id="recPanel">
+      <summary class="fsum" style="flex-wrap:wrap"><b>Filters, totals &amp; verification</b><span class="hint" id="filtHint"></span><span class="hint" id="sumHint"></span><span class="dot ok" id="verifDot"></span><span class="hint" id="verifBadge"></span></summary>
+      <div class="group-title" style="margin-top:14px">Filters</div>
+      <div class="controls">
         <label class="f">Operation<select id="fOp"></select></label>
         <label class="f">Details<select id="fDet"></select></label>
         <label class="f">Salary period<select id="fSal"></select></label>
@@ -155,51 +156,31 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
       <div class="chips" id="chipsP"></div>
       <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
       <div class="chips" id="chipsD"></div>
+      <div class="group-title" style="margin-top:24px">Totals</div>
+      <div class="summary" id="sum" style="margin-top:8px"></div>
+      <div class="group-title" style="margin-top:8px">Verification</div>
+      <div id="checks" style="margin-top:8px"></div>
     </details>
-    <details class="fold" id="recTotals">
-      <summary class="fsum"><b>Totals</b><span class="hint" id="sumHint"></span></summary>
-      <div class="summary" id="sum"></div>
-    </details>
-    <details class="panel" id="verif2">
-      <summary class="fsum"><b>Verification</b><span class="dot ok" id="verifDot2"></span><span class="hint" id="verifBadge2"></span></summary>
-      <div id="checks2" style="margin-top:10px"></div>
-    </details>
-    <label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--mute)"><input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)</label>
     <div class="tablewrap"><table id="tbl"></table></div>
     <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
   </section>
 
   <section id="accounts" hidden>
-    <details class="panel" id="verif">
-      <summary class="fsum"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
-      <div id="checks" style="margin-top:10px"></div>
-    </details>
-    <details class="panel" id="addAccBox">
-      <summary class="fsum"><b>Add account</b></summary>
-      <div class="inline" style="margin-top:12px">
+    <details class="panel" id="accTools">
+      <summary class="fsum"><b>Search, columns &amp; add account</b><span class="hint" id="accColsHint"></span></summary>
+      <div class="group-title" style="margin-top:14px">Search</div>
+      <div id="accSearchBox" style="margin-top:8px"></div>
+      <div class="group-title">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
+      <div class="chips" id="accCols"></div>
+      <div class="group-title" style="margin-top:20px">Add account</div>
+      <div class="inline" style="margin-top:8px">
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
         <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
         <button class="btn alt" id="addAcc">Add account</button>
         <span id="accMsg" style="color:var(--mute)"></span>
       </div>
     </details>
-    <details class="fold" id="accColsBox">
-      <summary class="fsum"><b>Columns</b><span class="hint" id="accColsHint"></span></summary>
-      <div class="chips" id="accCols"></div>
-      <p style="margin:8px 0 0"><button class="link" id="accColsAll" type="button">show all columns</button></p>
-    </details>
     <div class="tablewrap"><table id="acc"></table></div>
-    <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).
-      Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.
-      Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.
-      Opening balances are saved with the web app.</p>
-    <details class="panel" style="margin-top:14px">
-      <summary class="fsum"><b>Compare cash back with a column from your sheet</b></summary>
-      <p style="color:var(--mute)">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
-      <div class="inline"><label class="f">First row<input type="number" id="cmpFirst" value="2" style="width:90px"></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
-      <textarea id="cmpData" rows="5" placeholder="Paste the column here..." style="margin-top:8px"></textarea>
-      <div id="cmpOut" style="margin-top:10px"></div>
-    </details>
   </section>
 
   <section id="catview" hidden>
@@ -355,21 +336,7 @@ const isCbDet = d => String(d || '').replace(/\s/g, '').toLowerCase() === 'cashb
 const cbp = r => (r.cbp !== undefined ? r.cbp : r.amt2) || 0;   // extra cash back = sheet column P (falls back to the 2nd Amount column)
 let cbInfo = null;
 const CB_P_ACCOUNT = 'Ahli Credit2';   // like your formula, the whole of column P (SUM(P2:P)) belongs to this account
-function linkCb() {
-  rows.forEach(r => { r.cbx = cbp(r); r.cbOf = 0; r.linked = false; r.cbIsEntry = isCbDet(r.det); });
-  const PCT = [0.007, 0.05, 0.11];                       // the cash back rates of the entry form
-  const day = s => Date.parse((s || '') + 'T00:00:00Z') / 86400000;
-  rows.forEach((c, i) => {
-    if (!c.cbIsEntry || !c.dep) return;
-    const ok = r => r !== c && !r.cbIsEntry && !r.linked && r.op2 === 'Expenses' && r.wd === c.dep && r.date && c.date &&
-      day(r.date) <= day(c.date) && day(c.date) - day(r.date) <= 45 &&
-      PCT.some(p => Math.abs(r.amt * p - c.amt) <= 0.03);
-    let hit = null;
-    for (let j = i - 1; j >= 0 && !hit; j--) { if (day(c.date) - day(rows[j].date) > 45) break; if (ok(rows[j])) hit = rows[j]; }
-    for (let j = i + 1; j < rows.length && !hit; j++) { if (rows[j].date !== c.date) break; if (ok(rows[j])) hit = rows[j]; }
-    if (hit) { hit.linked = true; hit.cbx += c.amt; c.cbOf = hit.r; }
-  });
-}
+function linkCb() { rows.forEach(r => { r.cbx = cbp(r); r.cbOf = 0; r.cbIsEntry = isCbDet(r.det); }); }
 function refreshAccFilter() { const cur = $('fAcc').value || 'All'; $('fAcc').innerHTML = opt(['All', ...accountNames()], cur); }
 function accountNames() {
   const s = new Set(cfg.accounts || []);
@@ -458,8 +425,7 @@ function filtered() {
 }
 function renderRecords() {
   const f = filtered();
-  const fold = $('foldCb').checked && $('fDet').value !== 'Cash Back' && !chipD.has('Cash Back');
-  const view = (fold ? f.filter(r => !r.cbOf) : f).slice().reverse();   // newest first
+  const view = f.slice().reverse();   // newest first
   const cbTot = f.reduce((s, r) => s + ((r.cbIsEntry ? r.amt : 0) + cbp(r)), 0);
   const inc = f.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
   const exp = f.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
@@ -468,7 +434,7 @@ function renderRecords() {
   const feeDet = f.filter(r => r.det === 'Fees').reduce((s, r) => s + r.amt, 0);
   const fee = feeCol + feeDet;   // Fees column + main entries whose Details = "Fees"
   $('sum').innerHTML =
-    '<span><span>Rows</span><b>' + view.length + (view.length !== f.length ? ' (+' + (f.length - view.length) + ' cb)' : '') + '</b></span>' +
+    '<span><span>Rows</span><b>' + view.length + '</b></span>' +
     '<span style="border-left:3px solid var(--pos)"><span>Total Incomes</span><b style="color:var(--pos)">+' + money(inc) + ' SAR</b></span>' +
     '<span style="border-left:3px solid var(--neg)"><span>Total Expenses</span><b style="color:var(--neg)">-' + money(exp) + ' SAR</b></span>' +
     '<span><span>Transfers (Between)</span><b>' + money(btw) + ' SAR</b></span>' +
@@ -556,18 +522,16 @@ function renderAccounts() {
   $('status').innerHTML = '<span class="status-indicator-dot"></span><span>' + (n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed') + '</span>';
   $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
-  $('checks2').innerHTML = $('checks').innerHTML; $('verifDot2').className = $('verifDot').className; $('verifBadge2').textContent = $('verifBadge').textContent;
 }
 
 
 
 
 /* ---------- Search box for a table (rows are hidden, not removed; re-applied after every re-render) ---------- */
-function tableSearch(tbl, placeholder) {
+function tableSearch(tbl, placeholder, mount) {
   const inp = document.createElement('input');
   inp.type = 'search'; inp.className = 'tsearch'; inp.placeholder = placeholder || 'Search this table…';
-  const wrap = tbl.parentElement;
-  wrap.parentElement.insertBefore(inp, wrap);
+  if (mount) mount.appendChild(inp); else { const wrap = tbl.parentElement; wrap.parentElement.insertBefore(inp, wrap); }
   const apply = () => {
     const q = inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     tbl.querySelectorAll('tr').forEach(tr => {
@@ -580,7 +544,7 @@ function tableSearch(tbl, placeholder) {
   new MutationObserver(apply).observe(tbl, {childList: true});
   return inp;
 }
-tableSearch($('acc'), 'Search accounts…');
+tableSearch($('acc'), 'Search accounts…', $('accSearchBox'));
 tableSearch($('ctbl'), 'Search rows to categorize…');
 
 /* ---------- Accounts: hide / show columns (Account and Credit always stay) ---------- */
@@ -590,7 +554,7 @@ function applyAccCols() {
   const t = $('acc'); if (!t.rows.length || t.rows[0].cells.length < 11) return;
   [...t.rows].forEach(tr => { if (tr.cells.length < 11) return; for (let i = 1; i <= 9; i++) tr.cells[i].style.display = accHide.has(i) ? 'none' : ''; });
   $('accCols').innerHTML = [...Array(9)].map((_, k) => { const i = k + 1; return '<button class="chip' + (accHide.has(i) ? '' : ' on') + '" data-i="' + i + '" type="button">' + esc(t.rows[0].cells[i].textContent) + '</button>'; }).join('');
-  $('accColsHint').textContent = accHide.size ? accHide.size + ' hidden' : 'all shown';
+  $('accColsHint').textContent = accHide.size ? accHide.size + ' columns hidden' : '';
 }
 new MutationObserver(applyAccCols).observe($('acc'), {childList: true});
 $('accCols').onclick = e => {
@@ -601,36 +565,6 @@ $('accCols').onclick = e => {
 };
 $('accColsAll').onclick = () => { accHide.clear(); try { localStorage.removeItem('mb_acc_hide'); } catch (er) { /* ignore */ } applyAccCols(); };
 
-
-/* ---------- Compare cash back with a pasted sheet column ---------- */
-$('cmpRun').onclick = () => {
-  const first = parseInt($('cmpFirst').value, 10) || 2;
-  const sheet = {}; let sTot = 0;
-  $('cmpData').value.replace(/\r/g, '').split('\n').forEach((ln, i) => {
-    const v = parseFloat(String(ln).replace(/,/g, '').replace(/[^\d.\-]/g, ''));
-    if (!isNaN(v)) { sheet[first + i] = v; sTot += v; }
-  });
-  const dash = {}; let dTot = 0;
-  rows.forEach(r => {                                   // main rows carry their extra column + linked entry; unlinked entries carry their own amount
-    const v = r.cbx + (r.cbIsEntry && !r.cbOf ? r.amt : 0);
-    if (v) { dash[r.r] = v; dTot += v; }
-  });
-  const byRow = {}; rows.forEach(r => byRow[r.r] = r);
-  const diffs = [];
-  new Set([...Object.keys(sheet), ...Object.keys(dash)]).forEach(k => {
-    const a = sheet[k] || 0, b = dash[k] || 0;
-    if (Math.abs(a - b) > 0.004) diffs.push({r: +k, a, b});
-  });
-  diffs.sort((x, y) => x.r - y.r);
-  const net = Math.round((dTot - sTot) * 100) / 100;
-  $('cmpOut').innerHTML = '<div class="summary"><span>Sheet column <b>' + money(sTot) + '</b></span><span>Dashboard <b>' + money(dTot) + '</b></span><span>Difference <b>' + money(net) + '</b></span><span>Rows that differ <b>' + diffs.length + '</b></span></div>' +
-    (diffs.length ? '<div class="tablewrap"><table><tr><th>Row</th><th>Date</th><th>Details</th><th>Account</th><th class="n">Sheet</th><th class="n">Dashboard</th><th class="n">Difference</th></tr>' +
-      diffs.slice(0, 60).map(d => { const r = byRow[d.r] || {}; return '<tr><td>' + d.r + '</td><td>' + esc(r.date || '') + '</td><td>' + esc(r.det || '') + '</td><td>' + esc(r.wd || r.dep || '') + '</td><td class="n">' + money(d.a) + '</td><td class="n">' + money(d.b) + '</td><td class="n">' + money(d.b - d.a) + '</td></tr>'; }).join('') +
-      '</table></div>' + (diffs.length > 60 ? '<p style="color:var(--mute)">Showing the first 60 of ' + diffs.length + '.</p>' : '') +
-      '<p style="color:var(--mute)">If your sheet puts a cash back entry on its main operation, a wrongly matched pair shows up as two rows with opposite differences. A single row with the full difference is the real discrepancy.</p>'
-      : '<p style="color:var(--pos)">Every row matches.</p>');
-  const ct = $('cmpOut').querySelector('table'); if (ct) tableSearch(ct, 'Search the differing rows…');
-};
 
 /* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
 const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
@@ -692,9 +626,8 @@ function showTab(t) {
   renderLazy(t);
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
-$('status').onclick = () => showTab('accounts');
+$('status').onclick = () => { showTab('records'); $('recPanel').open = true; };
 $('reload').onclick = () => load(true);
-$('foldCb').onchange = () => { shown = 200; renderRecords(); };
 $('tbl').onclick = e => { const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); } };
 ['fOp', 'fDet', 'fSal', 'fCat', 'fAcc'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
 $('fQ').oninput = debounce(() => { shown = 200; renderRecords(); }, 200);
