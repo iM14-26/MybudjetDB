@@ -51,6 +51,15 @@ main{padding:24px 32px 80px;max-width:1440px;margin:0 auto}
 .panel:hover{box-shadow:var(--shadow-sm);border-color:#cbd5e1}
 details.panel{padding:16px 22px}
 details.panel summary{outline:none;font-weight:600}
+.fsum{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none}
+.fsum::-webkit-details-marker{display:none}
+.fsum::before{content:'\25B8';color:var(--text-subtle);font-size:12px;transition:transform .12s}
+details[open]>.fsum::before{transform:rotate(90deg)}
+.fsum .hint{color:var(--text-muted);font-weight:400;font-size:12.5px}
+.fsum .dot{margin-top:0}
+details.fold{margin:0 0 16px}
+details.fold>summary{padding:2px 4px;font-weight:600;font-size:14px}
+details.fold[open]>summary{margin-bottom:10px}
 .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
 label.f{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:600}
 select,input[type=text],input[type=number],input[type=search],input[type=date],textarea{font-family:inherit;color:var(--text-main);font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;min-width:0;transition:all .15s}
@@ -132,8 +141,9 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
   <div id="loading"><div class="spinner"></div><span>Reading the Responses sheet…</span></div>
 
   <section id="records" hidden>
-    <div class="panel">
-      <div class="controls">
+    <details class="panel" id="recFilters">
+      <summary class="fsum"><b>Filters</b><span class="hint" id="filtHint"></span></summary>
+      <div class="controls" style="margin-top:12px">
         <label class="f">Operation<select id="fOp"></select></label>
         <label class="f">Details<select id="fDet"></select></label>
         <label class="f">Salary period<select id="fSal"></select></label>
@@ -145,8 +155,15 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
       <div class="chips" id="chipsP"></div>
       <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
       <div class="chips" id="chipsD"></div>
-    </div>
-    <div class="summary" id="sum"></div>
+    </details>
+    <details class="fold" id="recTotals">
+      <summary class="fsum"><b>Totals</b><span class="hint" id="sumHint"></span></summary>
+      <div class="summary" id="sum"></div>
+    </details>
+    <details class="panel" id="verif2">
+      <summary class="fsum"><b>Verification</b><span class="dot ok" id="verifDot2"></span><span class="hint" id="verifBadge2"></span></summary>
+      <div id="checks2" style="margin-top:10px"></div>
+    </details>
     <label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--mute)"><input type="checkbox" id="foldCb" checked> Fold cash back entries into their main operation (extra column)</label>
     <div class="tablewrap"><table id="tbl"></table></div>
     <p style="text-align:center"><button class="btn alt" id="more" hidden></button></p>
@@ -154,24 +171,30 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
 
   <section id="accounts" hidden>
     <details class="panel" id="verif">
-      <summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
+      <summary class="fsum"><b>Verification</b><span class="dot ok" id="verifDot"></span><span id="verifBadge" style="color:var(--mute)"></span></summary>
       <div id="checks" style="margin-top:10px"></div>
     </details>
-    <div class="panel">
-      <div class="inline">
+    <details class="panel" id="addAccBox">
+      <summary class="fsum"><b>Add account</b></summary>
+      <div class="inline" style="margin-top:12px">
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
         <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
         <button class="btn alt" id="addAcc">Add account</button>
         <span id="accMsg" style="color:var(--mute)"></span>
       </div>
-    </div>
+    </details>
+    <details class="fold" id="accColsBox">
+      <summary class="fsum"><b>Columns</b><span class="hint" id="accColsHint"></span></summary>
+      <div class="chips" id="accCols"></div>
+      <p style="margin:8px 0 0"><button class="link" id="accColsAll" type="button">show all columns</button></p>
+    </details>
     <div class="tablewrap"><table id="acc"></table></div>
     <p style="color:var(--mute)">Credit = Opening + Deposited − Withdrawn − Fees (All) + Cash back (all).
       Fees = rows with Details "Fees"; Fees (Withdrawn records) = the Fees column; Fees (All) = both.
       Cash back (P2:P) = the whole of column P, shown on Ahli Credit2; Cash back (Deposited records) = rows with Details "Cash Back"; Cash back (all) = both.
       Opening balances are saved with the web app.</p>
     <details class="panel" style="margin-top:14px">
-      <summary style="cursor:pointer"><b>Compare cash back with a column from your sheet</b></summary>
+      <summary class="fsum"><b>Compare cash back with a column from your sheet</b></summary>
       <p style="color:var(--mute)">In the sheet, select your cash back column (for example P2 down to the last row), copy it and paste it below. Enter the sheet row where the paste starts. The dashboard then lists the rows whose cash back differs.</p>
       <div class="inline"><label class="f">First row<input type="number" id="cmpFirst" value="2" style="width:90px"></label><button class="btn alt" id="cmpRun" type="button">Compare</button></div>
       <textarea id="cmpData" rows="5" placeholder="Paste the column here..." style="margin-top:8px"></textarea>
@@ -452,6 +475,9 @@ function renderRecords() {
     '<span title="Fees column + rows with Details = Fees"><span>Fees</span><b>' + money(fee) + ' SAR</b></span>' +
     '<span><span>Cash Back</span><b style="color:#0284c7">' + money(cbTot) + ' SAR</b></span>' +
     '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>Net Cashflow</span><b style="color:var(--primary-text)">' + money(inc - exp - feeCol) + ' SAR</b></span>';
+  const nAct = ['fOp', 'fDet', 'fSal', 'fAcc', 'fCat'].filter(id => $(id).selectedIndex > 0).length + (chipP.size ? 1 : 0) + (chipD.size ? 1 : 0) + ($('fQ').value.trim() ? 1 : 0);
+  $('filtHint').textContent = nAct ? nAct + ' active' : 'none active';
+  $('sumHint').textContent = view.length + ' rows · Net ' + money(inc - exp - feeCol) + ' SAR';
   const hasUrl = rows.some(r => r.url);
   const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
   if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="14" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
@@ -530,6 +556,7 @@ function renderAccounts() {
   $('status').innerHTML = '<span class="status-indicator-dot"></span><span>' + (n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed') + '</span>';
   $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
+  $('checks2').innerHTML = $('checks').innerHTML; $('verifDot2').className = $('verifDot').className; $('verifBadge2').textContent = $('verifBadge').textContent;
 }
 
 
@@ -555,6 +582,25 @@ function tableSearch(tbl, placeholder) {
 }
 tableSearch($('acc'), 'Search accounts…');
 tableSearch($('ctbl'), 'Search rows to categorize…');
+
+/* ---------- Accounts: hide / show columns (Account and Credit always stay) ---------- */
+let accHide = new Set();
+try { accHide = new Set(JSON.parse(localStorage.getItem('mb_acc_hide') || '[]')); } catch (e) { /* ignore */ }
+function applyAccCols() {
+  const t = $('acc'); if (!t.rows.length || t.rows[0].cells.length < 11) return;
+  [...t.rows].forEach(tr => { if (tr.cells.length < 11) return; for (let i = 1; i <= 9; i++) tr.cells[i].style.display = accHide.has(i) ? 'none' : ''; });
+  $('accCols').innerHTML = [...Array(9)].map((_, k) => { const i = k + 1; return '<button class="chip' + (accHide.has(i) ? '' : ' on') + '" data-i="' + i + '" type="button">' + esc(t.rows[0].cells[i].textContent) + '</button>'; }).join('');
+  $('accColsHint').textContent = accHide.size ? accHide.size + ' hidden' : 'all shown';
+}
+new MutationObserver(applyAccCols).observe($('acc'), {childList: true});
+$('accCols').onclick = e => {
+  const i = +e.target.dataset.i; if (!i) return;
+  if (accHide.has(i)) accHide.delete(i); else accHide.add(i);
+  try { localStorage.setItem('mb_acc_hide', JSON.stringify([...accHide])); } catch (er) { /* ignore */ }
+  applyAccCols();
+};
+$('accColsAll').onclick = () => { accHide.clear(); try { localStorage.removeItem('mb_acc_hide'); } catch (er) { /* ignore */ } applyAccCols(); };
+
 
 /* ---------- Compare cash back with a pasted sheet column ---------- */
 $('cmpRun').onclick = () => {
