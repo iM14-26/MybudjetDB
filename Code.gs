@@ -1,6 +1,6 @@
 /**
  * Code.gs: backend API for the MyBudjet dashboard hosted on GitHub Pages (index.html).
- * Deploy as Web app: Execute as Me, Who has access: Anyone. Protected by the API_TOKEN script property.
+ * Deploy as Web app: Execute as Me, Who has access: Anyone. Protected by username + password login (see the Login section at the bottom).
  */
 
 const DASH_SS_ID = '1AWH16EV239lPmdIAXTdz46d38uF0s9dJdvf-okukz8M';
@@ -253,14 +253,137 @@ function doGet() {
   return dashJson_({ ok: true, msg: 'MyBudjet API is running.' });
 }
 
+/* ---------------- Login (username + password) ---------------- */
+// Users live in the script property AUTH_USERS as {username: {salt, hash}}. Passwords are never stored, only salted hashes.
+// A successful login returns a signed session token (valid AUTH_SESSION_DAYS days) that the page sends with every request.
+// Passwords expire after AUTH_PW_DAYS (90) days; changing one starts a new period and signs out the other devices.
+// Create / reset users by running addUserNow() from the Apps Script editor (instructions inside it).
+const AUTH_SESSION_DAYS = 30;
+const AUTH_MAX_FAILS = 5;          // wrong passwords allowed per username ...
+const AUTH_LOCK_SECONDS = 900;     // ... then that username is locked for 15 minutes
+const AUTH_ROUNDS = 400;
+const AUTH_PW_DAYS = 90;           // a password expires 90 days after it was set or changed
+const AUTH_WARN_DAYS = 7;          // (the page reminds daily during the last 7 days; the count is invisible before that)
+
+function authProps_() { return PropertiesService.getScriptProperties(); }
+function authUsers_() { try { return JSON.parse(authProps_().getProperty('AUTH_USERS') || '{}'); } catch (e) { return {}; } }
+function authHash_(salt, pw) {
+  let h = salt + ':' + pw;
+  for (let i = 0; i < AUTH_ROUNDS; i++) h = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h));
+  return h;
+}
+function authSecret_() {
+  const p = authProps_(); let s = p.getProperty('AUTH_SECRET');
+  if (!s) { s = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid(); p.setProperty('AUTH_SECRET', s); }
+  return s;
+}
+function authSign_(payload) { return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(payload, authSecret_())); }
+/** When the password was last set. Users created before expiry existed start their 90 days the first time they are seen. */
+function authChanged_(users, u) {
+  const rec = users[u]; if (!rec) return 0;
+  if (!rec.changed) { rec.changed = Date.now(); authProps_().setProperty('AUTH_USERS', JSON.stringify(users)); }
+  return rec.changed;
+}
+function authDaysLeft_(changed) { return Math.ceil((changed + AUTH_PW_DAYS * 86400000 - Date.now()) / 86400000); }
+
+/** scope 'full' = normal use; scope 'pw' = short token that may only change the password (issued when it has expired). */
+function authMakeSession_(username, changed, scope, ttlMs) {
+  const payload = [username, Date.now() + ttlMs, changed, scope].join('|');
+  return Utilities.base64EncodeWebSafe(payload) + '.' + authSign_(payload);
+}
+/** Returns {user, scope, daysLeft, expired} for a valid token, otherwise null. A password change or removing the user ends older sessions. */
+function authResolve_(token) {
+  try {
+    const parts = String(token || '').split('.'); if (parts.length !== 2) return null;
+    const payload = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0])).getDataAsString();
+    if (authSign_(payload) !== parts[1]) return null;
+    const f = payload.split('|'); if (f.length !== 4) return null;
+    const user = f[0], users = authUsers_();
+    if (!(+f[1] > Date.now()) || !users[user]) return null;
+    const changed = authChanged_(users, user);
+    if (String(changed) !== f[2]) return null;
+    const left = authDaysLeft_(changed);
+    return { user: user, scope: f[3], daysLeft: left, expired: left <= 0 };
+  } catch (e) { return null; }
+}
+function authLockCheck_(cache, key) {
+  if ((parseInt(cache.get(key), 10) || 0) >= AUTH_MAX_FAILS) throw new Error('Too many wrong attempts. Try again in 15 minutes.');
+}
+function authLogin_(username, password) {
+  const u = String(username || '').trim().toLowerCase(), pw = String(password || '');
+  if (!u || !pw) throw new Error('Enter your username and password.');
+  const cache = CacheService.getScriptCache(), key = 'authfail_' + u.slice(0, 60);
+  authLockCheck_(cache, key);
+  const users = authUsers_(), rec = users[u];
+  const hash = authHash_(rec ? rec.salt : 'none', pw);       // always hash, so unknown users take the same time
+  if (!rec || hash !== rec.hash) {
+    cache.put(key, String((parseInt(cache.get(key), 10) || 0) + 1), AUTH_LOCK_SECONDS);
+    throw new Error('Wrong username or password.');
+  }
+  cache.remove(key);
+  const changed = authChanged_(users, u), left = authDaysLeft_(changed);
+  if (left <= 0) return { session: authMakeSession_(u, changed, 'pw', 15 * 60000), username: u, mustChange: true };
+  return { session: authMakeSession_(u, changed, 'full', AUTH_SESSION_DAYS * 86400000), username: u, days: AUTH_SESSION_DAYS, daysLeft: left };
+}
+/** The signed-in user changes their own password. Starts a fresh 90-day period and signs out every other device. */
+function authChange_(user, oldPw, newPw) {
+  oldPw = String(oldPw || ''); newPw = String(newPw || '');
+  const cache = CacheService.getScriptCache(), key = 'authfail_' + user.slice(0, 60);
+  authLockCheck_(cache, key);
+  const users = authUsers_(), rec = users[user];
+  if (!rec) throw new Error('Unknown user.');
+  if (authHash_(rec.salt, oldPw) !== rec.hash) {
+    cache.put(key, String((parseInt(cache.get(key), 10) || 0) + 1), AUTH_LOCK_SECONDS);
+    throw new Error('The current password is wrong.');
+  }
+  if (newPw.length < 8) throw new Error('The new password needs at least 8 characters.');
+  if (newPw === oldPw) throw new Error('The new password must be different from the current one.');
+  if (newPw.toLowerCase() === user) throw new Error('The password must not be the same as the username.');
+  rec.salt = Utilities.getUuid(); rec.hash = authHash_(rec.salt, newPw); rec.changed = Date.now();
+  authProps_().setProperty('AUTH_USERS', JSON.stringify(users));
+  cache.remove(key);
+  return { session: authMakeSession_(user, rec.changed, 'full', AUTH_SESSION_DAYS * 86400000), username: user, days: AUTH_SESSION_DAYS, daysLeft: AUTH_PW_DAYS };
+}
+function authSetUser_(username, password) {
+  const u = String(username || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(u)) throw new Error('Username: 3-30 characters, letters, digits . _ - only.');
+  if (String(password || '').length < 8) throw new Error('Password must be at least 8 characters.');
+  const users = authUsers_(), salt = Utilities.getUuid();
+  users[u] = { salt: salt, hash: authHash_(salt, String(password)), changed: Date.now() };
+  authProps_().setProperty('AUTH_USERS', JSON.stringify(users));
+  CacheService.getScriptCache().remove('authfail_' + u.slice(0, 60));
+  return u;
+}
+
+/** RUN FROM THE EDITOR: type the new username and password below, press Run, then erase the password again. Running it for an existing username resets that password. */
+function addUserNow() {
+  const USERNAME = '';   // example: 'ahmed'
+  const PASSWORD = '';   // at least 8 characters. Erase it after running.
+  Logger.log('Saved user: ' + authSetUser_(USERNAME, PASSWORD));
+}
+/** RUN FROM THE EDITOR: removes a user (their open sessions stop working). */
+function removeUserNow() {
+  const USERNAME = '';
+  const u = String(USERNAME).trim().toLowerCase(), users = authUsers_();
+  if (!users[u]) throw new Error('No such user: ' + u);
+  delete users[u]; authProps_().setProperty('AUTH_USERS', JSON.stringify(users));
+  Logger.log('Removed user: ' + u);
+}
+/** RUN FROM THE EDITOR: shows the usernames that can sign in. */
+function listUsersNow() { Logger.log(Object.keys(authUsers_()).join(', ') || '(no users yet)'); }
+
 function doPost(e) {
   try {
-    const req = JSON.parse(e.postData.contents);
-    const token = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
-    if (!token || req.token !== token) return dashJson_({ ok: false, error: 'unauthorized' });
+    const req = JSON.parse(e.postData.contents), args = req.args || [];
+    if (req.fn === 'login') return dashJson_({ ok: true, data: authLogin_(args[0], args[1]) });
+    const s = authResolve_(req.session);
+    if (!s) return dashJson_({ ok: false, error: 'unauthorized' });
+    if (req.fn === 'changePassword') return dashJson_({ ok: true, data: authChange_(s.user, args[0], args[1]) });
+    if (s.scope !== 'full') return dashJson_({ ok: false, error: 'unauthorized' });
+    if (s.expired) return dashJson_({ ok: false, error: 'password_expired', pw: s.daysLeft });
     const fn = DASH_API_[req.fn];
     if (!fn) return dashJson_({ ok: false, error: 'Unknown function: ' + req.fn });
-    return dashJson_({ ok: true, data: fn.apply(null, req.args || []) });
+    return dashJson_({ ok: true, data: fn.apply(null, args), pw: s.daysLeft });   // pw = days left; the page only shows it during the last 7
   } catch (err) {
     return dashJson_({ ok: false, error: String(err && err.message || err) });
   }
