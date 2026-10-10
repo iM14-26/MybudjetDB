@@ -15,6 +15,12 @@
 const DASH_SS_ID = '1AWH16EV239lPmdIAXTdz46d38uF0s9dJdvf-okukz8M';
 const DASH_SHEET = 'Entries';      // the new responses table the dashboard is attached to
 const DASH_SOURCE = 'Responses';   // copied once to create DASH_SHEET
+const DASH_CB_COL = 'P';           // sheet column holding the extra cash back (your SUM(P2:P)); read by letter, not by header
+
+function dashColIndex_(letter) {   // 'A' -> 0, 'P' -> 15, 'AA' -> 26
+  let n = 0; String(letter).toUpperCase().split('').forEach(function (ch) { n = n * 26 + (ch.charCodeAt(0) - 64); });
+  return n - 1;
+}
 
 function dashNorm_(s) { return String(s).replace(/:/g, '').trim().toLowerCase(); }
 function dashStr_(v) { return v === null || v === undefined ? '' : String(v).trim(); }
@@ -82,6 +88,7 @@ function dashGetData() {
   const tz = ss.getSpreadsheetTimeZone();
   const vals = sh.getDataRange().getValues();
   const C = dashColumns_(vals[0]);
+  const cbIdx = dashColIndex_(DASH_CB_COL);
   const rows = [];
   for (let r = 1; r < vals.length; r++) {
     const v = vals[r];
@@ -95,12 +102,13 @@ function dashGetData() {
       amt: dashNum_(g(C.amt)), date: dashIso_(g(C.date), tz) || dashIso_(tsv, tz),
       h: dashNum_(g(C.h)), m: dashNum_(g(C.m)), ex: dashStr_(g(C.ex)),
       det: dashStr_(g(C.det)), fee: dashNum_(g(C.fee)), amt2: dashNum_(g(C.amt2)),
+      cbp: cbIdx < v.length ? dashNum_(v[cbIdx]) : 0,
       sms: dashStr_(g(C.sms)), url: dashStr_(g(C.url)),
       cat: dashStr_(g(C.cat)), sub: dashStr_(g(C.sub))
     });
   }
   const raw = PropertiesService.getScriptProperties().getProperty('dashCfg');
-  return { rows: rows, cfg: raw ? JSON.parse(raw) : {}, missing: Object.keys(C).filter(function (k) { return C[k] < 0; }) };
+  return { rows: rows, cbCol: { letter: DASH_CB_COL, header: dashStr_(vals[0][cbIdx]) }, cfg: raw ? JSON.parse(raw) : {}, missing: Object.keys(C).filter(function (k) { return C[k] < 0; }) };
 }
 
 function dashSaveCfg(json) {
@@ -184,6 +192,10 @@ function dashAddEntry(d) {
     set('fee', d.type === 'Other' && d.fees !== '' ? parseFloat(d.fees) || 0 : '');
     set('amt2', cb === '' || isNaN(cb) ? '' : cb);
     set('sms2', d.cbSms || '');
+
+    // also fill the extra cash back column (P) when it is a separate, formula-free column
+    const pIdx = dashColIndex_(DASH_CB_COL);
+    if (cb !== '' && !isNaN(cb) && pIdx !== C.amt2 && pIdx < lastCol && !sh.getRange(2, pIdx + 1).getFormula()) row[pIdx] = cb;
 
     const target = sh.getLastRow() + 1;
     sh.getRange(target, 1, 1, lastCol).setValues([row]);
