@@ -122,6 +122,13 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
 #pwHint{color:var(--text-muted)}
 #pwBanner{background:var(--warn-soft);border:1px solid var(--warn-border);color:#92400e;padding:10px 16px;margin:12px 20px 0;border-radius:var(--radius-sm);display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px}
 #pwBanner[hidden]{display:none}
+.shlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:8px}
+.shitem{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;cursor:pointer;font-size:13px}
+.shitem:hover{border-color:#cbd5e1;background:var(--bg-card-subtle)}
+.shitem input{width:17px;height:17px;accent-color:var(--primary);flex:none}
+.shitem small{display:block;color:var(--text-muted);font-size:11.5px;direction:ltr;text-align:left}
+.shitem b{font-weight:600}
+#shText{min-height:180px;font-family:'IBM Plex Sans Arabic','JetBrains Mono',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -213,6 +220,25 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
         <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
         <button class="btn alt" id="addAcc">Add account</button>
         <span id="accMsg" style="color:var(--mute)"></span>
+      </div>
+    </details>
+    <details class="panel" id="shareBox">
+      <summary class="fsum"><b>Share account details</b><span class="hint" id="shHint">Send your bank accounts on WhatsApp</span></summary>
+      <div class="controls" style="margin-top:14px">
+        <label class="f">Language<select id="shLang"><option value="ar">العربية (Arabic)</option><option value="en">English</option></select></label>
+        <label class="f">Name (Arabic)<input type="text" id="shNameAr" dir="rtl"></label>
+        <label class="f">Name (English)<input type="text" id="shNameEn"></label>
+        <label class="f">Send to (optional, with country code)<input type="text" id="shPhone" inputmode="tel" placeholder="9665XXXXXXXX"></label>
+      </div>
+      <div class="group-title" style="margin-top:18px">Accounts to share
+        <button class="link" id="shAll" type="button">all</button><button class="link" id="shNone" type="button">none</button>
+      </div>
+      <div class="shlist" id="shList"><span style="color:var(--text-muted)">Open this section to load the accounts…</span></div>
+      <label class="f" style="margin-top:18px">Message preview (you can edit it before sending)<textarea id="shText" rows="9"></textarea></label>
+      <div class="inline" style="margin-top:12px">
+        <button class="btn" id="shSend" type="button">Send on WhatsApp</button>
+        <button class="btn alt" id="shCopy" type="button">Copy</button>
+        <span id="shMsg" style="color:var(--text-muted)"></span>
       </div>
     </details>
     <div class="tablewrap"><table id="acc"></table></div>
@@ -1121,6 +1147,76 @@ $('pwForm').onsubmit = async ev => {
   $('pwSave').disabled = false;
 };
 updatePwBanner();
+
+/* ---------- Share account details on WhatsApp ---------- */
+let shAcc = null;                       // accounts read from the sheet's Accounts tab (A6:K9)
+const SH_KEY = 'mb_share_accts_v1';
+const shCfg = () => {                   // settings live in cfg.share, so they are saved with the rest of your settings
+  const c = cfg.share = cfg.share || {};
+  if (c.nameAr == null) c.nameAr = 'ماهر فهد النخلي';
+  if (c.nameEn == null) c.nameEn = 'Maher Alnakhli';
+  if (!c.lang) c.lang = 'ar';
+  if (!Array.isArray(c.sel)) c.sel = [];
+  if (c.phone == null) c.phone = '';
+  return c;
+};
+let shT;
+const shSave = () => { clearTimeout(shT); shT = setTimeout(() => google.script.run.dashSaveCfg(JSON.stringify(cfg)), 600); };
+const shMsg = (t, bad) => { $('shMsg').style.color = bad ? 'var(--neg)' : 'var(--text-muted)'; $('shMsg').textContent = t || ''; };
+const shHasAcct = a => a.acct && !/^(لا يوجد|none|n\/a|-)$/i.test(a.acct.trim());
+function shBuild(list, lang, name) {    // the same layout as your WhatsApp examples (bold values with *...*)
+  const L = lang === 'ar' ? ['الاسم:', 'البنك:', 'رقم الحساب:', 'رقم الآيبان:'] : ['Name:', 'Bank:', 'Acct.:', 'IBAN:'];
+  return list.map(a => [L[0], '*' + name + '*', L[1], '*' + (lang === 'ar' ? a.bankAr : a.bankEn) + '*']
+    .concat(shHasAcct(a) ? [L[2], '*' + a.acct + '*'] : [], [L[3], '*' + a.iban + '*']).join('\n')).join('\n\n');
+}
+function shUpdateText() {
+  const c = shCfg(), sel = (shAcc || []).filter(a => c.sel.includes(a.iban));
+  $('shText').value = shBuild(sel, c.lang, c.lang === 'ar' ? c.nameAr : c.nameEn);
+  $('shHint').textContent = sel.length ? sel.length + ' selected' : 'Send your bank accounts on WhatsApp';
+}
+function shRender() {
+  const c = shCfg();
+  $('shLang').value = c.lang; $('shNameAr').value = c.nameAr; $('shNameEn').value = c.nameEn; $('shPhone').value = c.phone;
+  $('shList').innerHTML = (shAcc || []).map(a =>
+    '<label class="shitem"><input type="checkbox" data-iban="' + esc(a.iban) + '"' + (c.sel.includes(a.iban) ? ' checked' : '') + '><span><b>' + esc(a.bankEn) + '</b> · ' + esc(a.bankAr) + '<small>' + esc(a.iban) + '</small></span></label>').join('') ||
+    '<span style="color:var(--text-muted)">No accounts found in Accounts!A6:K9.</span>';
+  shUpdateText();
+}
+function shLoad() {
+  if (!shAcc) { try { shAcc = JSON.parse(localStorage.getItem(SH_KEY)); } catch (e) { shAcc = null; } if (shAcc) shRender(); }
+  shMsg('Reading the Accounts sheet…');
+  google.script.run.withSuccessHandler(list => {
+    if (Array.isArray(list)) { shAcc = list; try { localStorage.setItem(SH_KEY, JSON.stringify(list)); } catch (e) {} }
+    shRender(); shMsg('');
+  }).withFailureHandler(e => { shMsg(shAcc ? 'Could not refresh: ' + (e && e.message || e) + ' Showing saved accounts.' : 'Could not read the accounts: ' + (e && e.message || e), true); if (shAcc) shRender(); }).dashGetAccounts();
+}
+$('shareBox').addEventListener('toggle', () => { if ($('shareBox').open) shLoad(); });
+$('shList').onchange = e => {
+  const iban = e.target.dataset.iban; if (iban === undefined) return;
+  const c = shCfg(), i = c.sel.indexOf(iban);
+  if (e.target.checked && i < 0) c.sel.push(iban); else if (!e.target.checked && i >= 0) c.sel.splice(i, 1);
+  shUpdateText(); shSave();
+};
+$('shAll').onclick = () => { shCfg().sel = (shAcc || []).map(a => a.iban); shRender(); shSave(); };
+$('shNone').onclick = () => { shCfg().sel = []; shRender(); shSave(); };
+$('shLang').onchange = () => { shCfg().lang = $('shLang').value; shUpdateText(); shSave(); };
+$('shNameAr').oninput = () => { shCfg().nameAr = $('shNameAr').value.trim(); shUpdateText(); shSave(); };
+$('shNameEn').oninput = () => { shCfg().nameEn = $('shNameEn').value.trim(); shUpdateText(); shSave(); };
+$('shPhone').oninput = () => { shCfg().phone = $('shPhone').value.trim(); shSave(); };
+$('shSend').onclick = () => {
+  const t = $('shText').value.trim();
+  if (!t) { shMsg('Choose at least one account first.', true); return; }
+  const num = $('shPhone').value.replace(/\D/g, '');
+  const a = document.createElement('a');
+  a.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(t); a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  shMsg('Opening WhatsApp…');
+};
+$('shCopy').onclick = async () => {
+  const t = $('shText').value; if (!t.trim()) { shMsg('Choose at least one account first.', true); return; }
+  try { await navigator.clipboard.writeText(t); } catch (e) { $('shText').select(); document.execCommand('copy'); }
+  shMsg('Copied.');
+};
 
 /* ---------- Install as an app (Android Chrome) ---------- */
 let installEvt = null;
