@@ -1,21 +1,12 @@
 /**
  * Code.gs: backend API for the MyBudjet dashboard hosted on GitHub Pages (index.html).
  * Deploy as Web app: Execute as Me, Who has access: Anyone. Protected by the API_TOKEN script property.
- *
- * The dashboard now reads its own responses table: the "Entries" sheet.
- * - First run: "Entries" is created automatically. If the spreadsheet has a "Responses"
- *   sheet it is copied (headers + rows); otherwise a new table with the standard headers is made.
- * - The "Add entry" tab of the dashboard appends new rows to "Entries".
- * - Category / Sub-category are saved in "Entries" (columns created if missing).
- *
- * The Google Form keeps writing to "Responses" only. Rows added there after the
- * first copy do NOT appear in "Entries" (see the note in the chat).
  */
 
 const DASH_SS_ID = '1AWH16EV239lPmdIAXTdz46d38uF0s9dJdvf-okukz8M';
 const DASH_SHEET = 'Entries';      // the new responses table the dashboard is attached to
 const DASH_SOURCE = 'Responses';   // copied once to create DASH_SHEET
-const DASH_CB_COL = 'P';           // sheet column holding the extra cash back (your SUM(P2:P)); read by letter, not by header
+const DASH_CB_COL = 'P';           // sheet column holding the extra cash back (your SUM(P2:P))
 
 function dashColIndex_(letter) {   // 'A' -> 0, 'P' -> 15, 'AA' -> 26
   let n = 0; String(letter).toUpperCase().split('').forEach(function (ch) { n = n * 26 + (ch.charCodeAt(0) - 64); });
@@ -46,12 +37,11 @@ function dashSheet_(ss) {
   let sh = ss.getSheetByName(DASH_SHEET);
   if (sh) return sh;
   const src = ss.getSheetByName(DASH_SOURCE);
-  if (src) {                      // copy the old table, rows and all
+  if (src) {
     sh = src.copyTo(ss);
     sh.setName(DASH_SHEET);
     return sh;
   }
-  // No "Responses" sheet in this spreadsheet: start a fresh table with the standard headers
   sh = ss.insertSheet(DASH_SHEET);
   const headers = ['Timestamp', 'Withdrawn', 'Operation type', 'Deposited', 'Amount', 'Date', 'H', 'M',
     'SMS', 'Extras', 'Details', 'Fees', 'Amount', 'SMS', '1st Other Account', '2nd Other Account',
@@ -82,13 +72,50 @@ function dashColumns_(headerRow) {
   };
 }
 
-function dashGetData() {
+/* ---- Short cache of the sheet read (the slow part). Rows only; settings are always read fresh. ---- */
+const DASH_CACHE_TTL = 60;   // seconds. Edits made straight in the sheet show up after at most this long, or at once with "Reload data".
+
+function dashCachePut_(obj) {
+  try {
+    const b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json')).getBytes());
+    const CH = 90000, parts = Math.ceil(b64.length / CH);
+    if (parts > 90) return;                              // too big for the cache: just skip it
+    const pairs = { dashRows_n: String(parts) };
+    for (let i = 0; i < parts; i++) pairs['dashRows_' + i] = b64.substr(i * CH, CH);
+    CacheService.getScriptCache().putAll(pairs, DASH_CACHE_TTL);
+  } catch (e) { /* caching is optional */ }
+}
+function dashCacheGet_() {
+  try {
+    const c = CacheService.getScriptCache(), n = parseInt(c.get('dashRows_n'), 10);
+    if (!n) return null;
+    const keys = []; for (let i = 0; i < n; i++) keys.push('dashRows_' + i);
+    const got = c.getAll(keys); let b64 = '';
+    for (let i = 0; i < n; i++) { const part = got['dashRows_' + i]; if (!part) return null; b64 += part; }
+    const json = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString();
+    return JSON.parse(json);
+  } catch (e) { return null; }
+}
+function dashCacheClear_() {
+  try {
+    const c = CacheService.getScriptCache(), n = parseInt(c.get('dashRows_n'), 10) || 0, keys = ['dashRows_n'];
+    for (let i = 0; i < n; i++) keys.push('dashRows_' + i);
+    c.removeAll(keys);
+  } catch (e) { /* ignore */ }
+}
+
+function dashReadSheet_() {
   const ss = SpreadsheetApp.openById(DASH_SS_ID);
   const sh = dashSheet_(ss);
   const tz = ss.getSpreadsheetTimeZone();
   const vals = sh.getDataRange().getValues();
-  const C = dashColumns_(vals[0]);
   const cbIdx = dashColIndex_(DASH_CB_COL);
+
+  if (!vals || vals.length === 0) {
+    return { rows: [], cbCol: { letter: DASH_CB_COL, header: '' }, missing: [] };
+  }
+
+  const C = dashColumns_(vals[0]);
   const rows = [];
   for (let r = 1; r < vals.length; r++) {
     const v = vals[r];
@@ -107,8 +134,20 @@ function dashGetData() {
       cat: dashStr_(g(C.cat)), sub: dashStr_(g(C.sub))
     });
   }
+  const cbHeader = (vals[0] && cbIdx < vals[0].length) ? dashStr_(vals[0][cbIdx]) : '';
+  return {
+    rows: rows,
+    cbCol: { letter: DASH_CB_COL, header: cbHeader },
+    missing: Object.keys(C).filter(function (k) { return C[k] < 0; })
+  };
+}
+
+/** force = true (the "Reload data" button) skips the cache. */
+function dashGetData(force) {
+  let base = force ? null : dashCacheGet_();
+  if (!base) { base = dashReadSheet_(); dashCachePut_(base); }
   const raw = PropertiesService.getScriptProperties().getProperty('dashCfg');
-  return { rows: rows, cbCol: { letter: DASH_CB_COL, header: dashStr_(vals[0][cbIdx]) }, cfg: raw ? JSON.parse(raw) : {}, missing: Object.keys(C).filter(function (k) { return C[k] < 0; }) };
+  return { rows: base.rows, cbCol: base.cbCol, missing: base.missing, cfg: raw ? JSON.parse(raw) : {} };
 }
 
 function dashSaveCfg(json) {
@@ -116,7 +155,6 @@ function dashSaveCfg(json) {
   return true;
 }
 
-/** items: [{row: <sheet row number>, cat: '...', sub: '...'}] */
 function dashSaveCats(items) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -134,19 +172,13 @@ function dashSaveCats(items) {
       sh.getRange(it.row, C.cat + 1, 1, 2).setValues([[it.cat || '', it.sub || '']]);
     });
     SpreadsheetApp.flush();
+    dashCacheClear_();
     return items.length;
   } finally {
     lock.releaseLock();
   }
 }
 
-/**
- * Appends one entry (from the dashboard's "Add entry" tab) to the Entries sheet.
- * Values are placed by header name, so column order does not matter.
- * d: {type, withdrawn, other1, fees, operationType, deposited, other2, amount,
- *     date 'yyyy-MM-dd', h, m, sms, extras, details, cbAmount, cbSms}
- * Returns {row, ts, op}.
- */
 function dashAddEntry(d) {
   d = d || {};
   const amount = parseFloat(d.amount);
@@ -171,7 +203,7 @@ function dashAddEntry(d) {
     });
 
     const now = new Date();
-    const op = d.type === 'Other' ? (d.operationType || 'Expenses') : d.type;   // Incomes / Refund / Expenses / Between Acounts
+    const op = d.type === 'Other' ? (d.operationType || 'Expenses') : d.type;
     const cb = d.cbAmount !== '' && d.cbAmount !== undefined && d.cbAmount !== null ? parseFloat(d.cbAmount) : '';
     const row = new Array(lastCol).fill('');
     const set = function (k, v) { if (C[k] >= 0) row[C[k]] = v; };
@@ -193,20 +225,18 @@ function dashAddEntry(d) {
     set('amt2', cb === '' || isNaN(cb) ? '' : cb);
     set('sms2', d.cbSms || '');
 
-    // also fill the extra cash back column (P) when it is a separate, formula-free column
     const pIdx = dashColIndex_(DASH_CB_COL);
     if (cb !== '' && !isNaN(cb) && pIdx !== C.amt2 && pIdx < lastCol && !sh.getRange(2, pIdx + 1).getFormula()) row[pIdx] = cb;
 
     const target = sh.getLastRow() + 1;
     sh.getRange(target, 1, 1, lastCol).setValues([row]);
     SpreadsheetApp.flush();
+    dashCacheClear_();
     return { row: target, ts: Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss'), op: op };
   } finally {
     lock.releaseLock();
   }
 }
-
-/* ---------------- Web API (called by index.html) ---------------- */
 
 const DASH_API_ = {
   dashGetData: dashGetData,

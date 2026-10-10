@@ -360,7 +360,7 @@ function loadCached() { try { const c = JSON.parse(localStorage.getItem(CACHE_KE
 function saveCached(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) { try { localStorage.removeItem(CACHE_KEY); } catch (_) {} } }
 const setSync = t => { $('sync').textContent = t || ''; };
 let firstLoad = true;
-function load() {
+function load(force) {
   $('err').style.display = 'none';
   const c = firstLoad ? loadCached() : null; firstLoad = false;
   const have = !!c || rows.length > 0;
@@ -372,7 +372,7 @@ function load() {
   }).withFailureHandler(e => {
     if (have) { setSync(''); $('err').style.display = 'block'; $('err').textContent = 'Could not refresh: ' + (e && e.message || e) + ' Showing saved data.'; }
     else showErr(e);
-  }).dashGetData();
+  }).dashGetData(!!force);
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
@@ -647,7 +647,7 @@ function showTab(t) {
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
 $('status').onclick = () => showTab('accounts');
-$('reload').onclick = load;
+$('reload').onclick = () => load(true);
 $('foldCb').onchange = () => { shown = 200; renderRecords(); };
 $('tbl').onclick = e => { const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); } };
 ['fOp', 'fDet', 'fSal', 'fCat', 'fAcc'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
