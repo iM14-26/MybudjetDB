@@ -238,8 +238,59 @@ function dashAddEntry(d) {
   }
 }
 
+/* ---- Account details to share (sheet "Accounts"): row 6 bank (EN), 7 bank (AR), 8 account no., 9 IBAN; one account per column B:K ---- */
+const DASH_ACCOUNTS_SHEET = 'Accounts';
+const DASH_ACCOUNTS_RANGE = 'A6:K9';
+
+function dashGetAccounts() {
+  const sh = SpreadsheetApp.openById(DASH_SS_ID).getSheetByName(DASH_ACCOUNTS_SHEET);
+  if (!sh) throw new Error('Sheet "' + DASH_ACCOUNTS_SHEET + '" was not found.');
+  const v = sh.getRange(DASH_ACCOUNTS_RANGE).getDisplayValues();   // text exactly as shown, so long numbers keep every digit
+  const out = [];
+  for (let c = 1; c < v[0].length; c++) {
+    const bankEn = dashStr_(v[0][c]), bankAr = dashStr_(v[1][c]), acct = dashStr_(v[2][c]), iban = dashStr_(v[3][c]);
+    if (bankEn || bankAr || iban) out.push({ bankEn: bankEn, bankAr: bankAr || bankEn, acct: acct, iban: iban });
+  }
+  return out;
+}
+
+/* ---- Private data (Accounts!L17:N19) revealed only with a PIN ----
+   The PIN is checked HERE; the cells are not sent to the page until it is correct.
+   Set or change the PIN by running setSecretPinNow() from the editor. */
+const SECRET_RANGE = 'L17:N19';
+const SECRET_SECONDS = 30;          // how long the page keeps the data visible
+const SECRET_MAX_FAILS = 5;         // wrong PINs allowed ...
+const SECRET_LOCK_SECONDS = 900;    // ... then locked for 15 minutes
+
+function secretReveal(pin) {
+  const raw = authProps_().getProperty('SECRET_PIN');
+  if (!raw) throw new Error('No PIN is set yet. Run setSecretPinNow() in the Apps Script editor.');
+  const rec = JSON.parse(raw), cache = CacheService.getScriptCache(), key = 'secretFails';
+  if ((parseInt(cache.get(key), 10) || 0) >= SECRET_MAX_FAILS) throw new Error('Too many wrong PINs. Try again in 15 minutes.');
+  if (authHash_(rec.salt, String(pin == null ? '' : pin).trim()) !== rec.hash) {
+    cache.put(key, String((parseInt(cache.get(key), 10) || 0) + 1), SECRET_LOCK_SECONDS);
+    throw new Error('Wrong PIN.');
+  }
+  cache.remove(key);
+  const sh = SpreadsheetApp.openById(DASH_SS_ID).getSheetByName(DASH_ACCOUNTS_SHEET);
+  if (!sh) throw new Error('Sheet "' + DASH_ACCOUNTS_SHEET + '" was not found.');
+  return { values: sh.getRange(SECRET_RANGE).getDisplayValues(), seconds: SECRET_SECONDS };
+}
+
+/** RUN FROM THE EDITOR: type the PIN (4 to 12 digits) below, press Run, then erase it again. Running it again changes the PIN. */
+function setSecretPinNow() {
+  const PIN = '';
+  if (!/^\d{4,12}$/.test(PIN)) throw new Error('The PIN must be 4 to 12 digits.');
+  const salt = Utilities.getUuid();
+  authProps_().setProperty('SECRET_PIN', JSON.stringify({ salt: salt, hash: authHash_(salt, PIN) }));
+  CacheService.getScriptCache().remove('secretFails');
+  Logger.log('PIN saved.');
+}
+
 const DASH_API_ = {
   dashGetData: dashGetData,
+  dashGetAccounts: dashGetAccounts,
+  secretReveal: secretReveal,
   dashSaveCfg: dashSaveCfg,
   dashSaveCats: dashSaveCats,
   dashAddEntry: dashAddEntry
@@ -255,10 +306,10 @@ function doGet() {
 
 /* ---------------- Login (username + password) ---------------- */
 // Users live in the script property AUTH_USERS as {username: {salt, hash}}. Passwords are never stored, only salted hashes.
-// A successful login returns a signed session token (valid AUTH_SESSION_DAYS days) that the page sends with every request.
+// A successful login returns a signed session token (valid AUTH_SESSION_HOURS hours) that the page sends with every request.
 // Passwords expire after AUTH_PW_DAYS (90) days; changing one starts a new period and signs out the other devices.
 // Create / reset users by running addUserNow() from the Apps Script editor (instructions inside it).
-const AUTH_SESSION_DAYS = 30;
+const AUTH_SESSION_HOURS = 12;     // a sign-in lasts 12 hours, then the password is asked again
 const AUTH_MAX_FAILS = 5;          // wrong passwords allowed per username ...
 const AUTH_LOCK_SECONDS = 900;     // ... then that username is locked for 15 minutes
 const AUTH_ROUNDS = 400;
@@ -300,6 +351,7 @@ function authResolve_(token) {
     const f = payload.split('|'); if (f.length !== 4) return null;
     const user = f[0], users = authUsers_();
     if (!(+f[1] > Date.now()) || !users[user]) return null;
+    if (+f[1] - Date.now() > AUTH_SESSION_HOURS * 3600000 + 60000) return null;   // older 30-day sessions end now; sign in again once
     const changed = authChanged_(users, user);
     if (String(changed) !== f[2]) return null;
     const left = authDaysLeft_(changed);
@@ -323,7 +375,7 @@ function authLogin_(username, password) {
   cache.remove(key);
   const changed = authChanged_(users, u), left = authDaysLeft_(changed);
   if (left <= 0) return { session: authMakeSession_(u, changed, 'pw', 15 * 60000), username: u, mustChange: true };
-  return { session: authMakeSession_(u, changed, 'full', AUTH_SESSION_DAYS * 86400000), username: u, days: AUTH_SESSION_DAYS, daysLeft: left };
+  return { session: authMakeSession_(u, changed, 'full', AUTH_SESSION_HOURS * 3600000), username: u, hours: AUTH_SESSION_HOURS, daysLeft: left };
 }
 /** The signed-in user changes their own password. Starts a fresh 90-day period and signs out every other device. */
 function authChange_(user, oldPw, newPw) {
@@ -342,7 +394,7 @@ function authChange_(user, oldPw, newPw) {
   rec.salt = Utilities.getUuid(); rec.hash = authHash_(rec.salt, newPw); rec.changed = Date.now();
   authProps_().setProperty('AUTH_USERS', JSON.stringify(users));
   cache.remove(key);
-  return { session: authMakeSession_(user, rec.changed, 'full', AUTH_SESSION_DAYS * 86400000), username: user, days: AUTH_SESSION_DAYS, daysLeft: AUTH_PW_DAYS };
+  return { session: authMakeSession_(user, rec.changed, 'full', AUTH_SESSION_HOURS * 3600000), username: user, hours: AUTH_SESSION_HOURS, daysLeft: AUTH_PW_DAYS };
 }
 function authSetUser_(username, password) {
   const u = String(username || '').trim().toLowerCase();

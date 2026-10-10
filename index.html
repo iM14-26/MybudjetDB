@@ -129,6 +129,12 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
 .shitem small{display:block;color:var(--text-muted);font-size:11.5px;direction:ltr;text-align:left}
 .shitem b{font-weight:600}
 #shText{min-height:180px;font-family:'IBM Plex Sans Arabic','JetBrains Mono',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.secbar{height:4px;background:var(--bg-card-subtle);border-radius:4px;overflow:hidden;margin:0 0 12px}
+.secbar i{display:block;height:100%;width:100%;background:var(--primary);transition:width .25s linear}
+.nocopy,.nocopy *{-webkit-user-select:none;user-select:none}
+#secTbl td{font-family:'JetBrains Mono',monospace}
+#secTbl td.rn{font-family:inherit;color:var(--text-muted);font-size:12px}
+.seccopy{margin-left:10px;padding:3px 10px;font-size:12px}
 </style>
 </head>
 <body>
@@ -241,6 +247,20 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
         <span id="shMsg" style="color:var(--text-muted)"></span>
       </div>
     </details>
+    <details class="panel" id="secBox">
+      <summary class="fsum"><b>Private data</b><span class="hint" id="secHint">PIN required · shown for 30 seconds</span></summary>
+      <div class="inline" id="secAsk" style="margin-top:14px">
+        <label class="f">PIN<input type="password" id="secPin" inputmode="numeric" autocomplete="new-password" maxlength="12" style="max-width:170px"></label>
+        <button class="btn" id="secShow" type="button">Show</button>
+        <span id="secMsg" style="color:var(--text-muted)"></span>
+      </div>
+      <div id="secData" class="hide" style="margin-top:14px">
+        <div class="inline" style="justify-content:space-between;margin-bottom:8px"><span id="secTime" style="color:var(--text-muted);font-weight:600"></span><button class="btn alt" id="secHide" type="button">Hide now</button></div>
+        <div class="secbar"><i id="secBar"></i></div>
+        <div class="tablewrap"><table id="secTbl"></table></div>
+        <p style="color:var(--text-muted);font-size:12.5px;margin:10px 0 0">Only the first row can be copied.</p>
+      </div>
+    </details>
     <div class="tablewrap"><table id="acc"></table></div>
   </section>
 
@@ -345,7 +365,7 @@ async function apiCall(fn, args) {
       if (j && j.pw !== undefined) setPwLeft(j.pw);
       if (j && !j.ok && j.error === 'password_expired') { await openPw({forced: true, msg: 'Your password has expired. Choose a new one to continue.'}); return apiCall(fn, args); }
       if (!j || !j.ok) {
-        if (j && j.error === 'unauthorized' && fn !== 'login') { localStorage.removeItem('mb_session'); await showLogin('Your session ended. Please sign in again.'); return apiCall(fn, args); }
+        if (j && j.error === 'unauthorized' && fn !== 'login') { localStorage.removeItem('mb_session'); wipeSaved(); await showLogin('Your session ended. Please sign in again.'); return apiCall(fn, args); }
         const err = new Error((j && j.error) || 'The backend reported an error.');
         err.final = true; throw err;
       }
@@ -418,11 +438,17 @@ function accountNames() {
 const CACHE_KEY = 'mb_data_v1';
 function loadCached() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return c && Array.isArray(c.rows) ? c : null; } catch (e) { return null; } }
 function saveCached(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) { try { localStorage.removeItem(CACHE_KEY); } catch (_) {} } }
+function sessionAlive() {               // reads the expiry inside the sign-in token (no network needed)
+  const t = localStorage.getItem('mb_session'); if (!t) return false;
+  try { return +atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')).split('|')[1] > Date.now(); } catch (e) { return false; }
+}
+function wipeSaved() { ['mb_data_v1', 'mb_share_accts_v1'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); }   // saved ledger copies go when the sign-in ends
 const setSync = t => { $('sync').textContent = t || ''; };
 let firstLoad = true;
 function load(force) {
   $('err').style.display = 'none';
-  const c = firstLoad ? loadCached() : null; firstLoad = false;
+  const alive = sessionAlive(); if (!alive) wipeSaved();
+  const c = firstLoad && alive ? loadCached() : null; firstLoad = false;
   const have = !!c || rows.length > 0;
   if (c) init(c);                              // saved copy: the app is usable immediately
   if (have) setSync('Updating…'); else $('loading').hidden = false;
@@ -1098,7 +1124,7 @@ $('loginForm').onsubmit = async ev => {
   } catch (e) { $('loginMsg').textContent = e.message; }
   btn.disabled = false;
 };
-$('logoutBtn').onclick = () => { ['mb_session', 'mb_user', 'mb_pw_left', 'mb_pw_dismiss'].forEach(k => localStorage.removeItem(k)); location.reload(); };
+$('logoutBtn').onclick = () => { ['mb_session', 'mb_user', 'mb_pw_left', 'mb_pw_dismiss'].forEach(k => localStorage.removeItem(k)); wipeSaved(); location.reload(); };
 showWho();
 
 /* ---------- Password: 90-day expiry, daily reminders in the last 7 days, change dialog ---------- */
@@ -1217,6 +1243,61 @@ $('shCopy').onclick = async () => {
   try { await navigator.clipboard.writeText(t); } catch (e) { $('shText').select(); document.execCommand('copy'); }
   shMsg('Copied.');
 };
+
+/* ---------- Private data behind a PIN (Accounts!L17:N19), visible for 30 seconds ---------- */
+let secVals = null, secTick = null, secEnd = 0, secTotal = 30000;
+const secSay = (t, bad) => { $('secMsg').style.color = bad ? 'var(--neg)' : 'var(--text-muted)'; $('secMsg').textContent = t || ''; };
+function secHide(msg) {                 // wipes the values from the page and from memory
+  clearInterval(secTick); secTick = null; secVals = null;
+  $('secTbl').innerHTML = ''; $('secData').classList.add('hide'); $('secAsk').classList.remove('hide');
+  $('secPin').value = ''; $('secBar').style.width = '100%';
+  $('secHint').textContent = 'PIN required · shown for 30 seconds';
+  secSay(msg || '');
+}
+function secShowData(d) {
+  secVals = (d && d.values) || [];
+  const first = 17;                     // the sheet row of the first line
+  $('secTbl').innerHTML = secVals.map((row, i) =>
+    '<tr' + (i ? ' class="nocopy" oncontextmenu="return false"' : '') + '><td class="rn nocopy">Row ' + (first + i) + '</td>' +
+    row.map((v, j) => '<td>' + esc(v) + (i === 0 && v ? '<button class="btn alt seccopy" type="button" data-c="' + j + '">Copy</button>' : '') + '</td>').join('') + '</tr>').join('');
+  $('secAsk').classList.add('hide'); $('secData').classList.remove('hide'); $('secPin').value = ''; secSay('');
+  secTotal = ((d && d.seconds) || 30) * 1000; secEnd = Date.now() + secTotal;
+  clearInterval(secTick);
+  secTick = setInterval(() => {
+    const left = secEnd - Date.now();
+    if (left <= 0 || $('accounts').hidden) { secHide(left <= 0 ? 'Hidden. Enter the PIN to show it again.' : ''); return; }
+    $('secTime').textContent = 'Hides in ' + Math.ceil(left / 1000) + ' s';
+    $('secBar').style.width = (left / secTotal * 100) + '%';
+  }, 250);
+  $('secTime').textContent = 'Hides in ' + Math.ceil(secTotal / 1000) + ' s';
+  $('secHint').textContent = 'visible now';
+}
+function secReveal() {
+  const pin = $('secPin').value.trim();
+  if (!pin) { secSay('Enter the PIN.', true); return; }
+  $('secShow').disabled = true; secSay('Checking…');
+  google.script.run.withSuccessHandler(d => { $('secShow').disabled = false; secShowData(d); })
+    .withFailureHandler(e => { $('secShow').disabled = false; $('secPin').value = ''; secSay(e && e.message || String(e), true); })
+    .secretReveal(pin);
+}
+$('secShow').onclick = secReveal;
+$('secPin').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); secReveal(); } });
+$('secHide').onclick = () => secHide('');
+$('secBox').addEventListener('toggle', () => { if (!$('secBox').open) secHide(''); else $('secPin').focus(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) secHide(''); });
+window.addEventListener('pagehide', () => secHide(''));
+$('secTbl').onclick = async e => {      // copying is offered for the first row only
+  const b = e.target.closest('button[data-c]'); if (!b || !secVals || !secVals[0]) return;
+  const t = String(secVals[0][+b.dataset.c] || '');
+  try { await navigator.clipboard.writeText(t); }
+  catch (_) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  b.textContent = 'Copied'; setTimeout(() => { if (b.isConnected) b.textContent = 'Copy'; }, 1200);
+};
+$('secTbl').addEventListener('copy', e => {   // text copied by hand is blocked if it reaches rows 2 and 3
+  const sel = getSelection();
+  if (sel && [...$('secTbl').querySelectorAll('tr.nocopy')].some(tr => sel.containsNode(tr, true))) e.preventDefault();
+});
+['cut', 'dragstart'].forEach(ev => $('secTbl').addEventListener(ev, e => e.preventDefault()));
 
 /* ---------- Install as an app (Android Chrome) ---------- */
 let installEvt = null;
