@@ -135,6 +135,37 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
 #secTbl td{font-family:'JetBrains Mono',monospace}
 #secTbl td.rn{font-family:inherit;color:var(--text-muted);font-size:12px}
 .seccopy{margin-left:10px;padding:3px 10px;font-size:12px}
+
+.header-actions{flex-wrap:nowrap;min-width:0}
+.avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--primary-border);background:var(--primary-soft);color:var(--primary-text);font:inherit;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.avatar:hover{background:var(--primary-border)}
+.usermenu{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 8px);min-width:210px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(15,23,42,.14);padding:8px;z-index:60;display:flex;flex-direction:column;gap:2px}
+.menu-who{padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;color:var(--text-muted);font-size:12px;font-weight:600}
+.menu .btn{width:100%;justify-content:flex-start;background:none;border:0;color:var(--text-main);box-shadow:none;font-weight:500}
+.menu .btn:hover{background:var(--bg-card-subtle)}
+td.act{white-space:nowrap}
+.rowbtn{border:1px solid var(--border);background:#fff;border-radius:6px;padding:2px 9px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--text-muted);margin-right:4px}
+.rowbtn:hover{background:var(--bg-card-subtle);color:var(--text-main)}
+.rowbtn.del{color:var(--neg)}
+.rowbtn.del:hover{background:var(--neg-soft);border-color:var(--neg-border)}
+#aeEditBar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-soft);border:1px solid var(--warn-border);color:#92400e;border-radius:var(--radius-md);padding:10px 16px;margin-bottom:16px;font-weight:600}
+@media (max-width:720px){
+  header{padding:10px 14px;gap:10px;flex-wrap:nowrap}
+  .brand-sub{display:none}
+  #sync{display:none}
+  #reload .lbl{display:none}
+  #reload{padding:8px 10px}
+  .header-actions{gap:8px}
+  #status{padding:6px 10px;max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  nav#tabs{padding:0 6px}
+  nav#tabs button{padding:12px 11px}
+  main{padding:14px 12px 80px}
+  .panel{padding:14px}
+  details.panel{padding:12px 14px}
+  #pwBanner{margin:10px 12px 0}
+}
+@media (max-width:430px){ .brand-text-block{display:none} }
 </style>
 </head>
 <body>
@@ -166,12 +197,17 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
   </div>
   <div class="header-actions">
     <span id="sync" style="color:var(--text-muted);font-size:12px"></span>
-    <span id="whoami" style="color:var(--text-muted);font-size:12px"></span>
-    <button class="btn alt" id="pwBtn" type="button">Change password</button>
-    <button class="btn alt" id="logoutBtn" type="button">Sign out</button>
-    <button class="btn" id="installBtn" hidden>Install app</button>
-    <button class="btn alt" id="reload"><span class="material-symbols-outlined" style="font-size:16px">sync</span> Reload data</button>
+    <button class="btn alt" id="reload" type="button" title="Reload data"><span class="material-symbols-outlined" style="font-size:16px">sync</span><span class="lbl">Reload</span></button>
     <div id="status" title="Open verification"><span class="status-indicator-dot"></span><span>Loading…</span></div>
+    <div class="usermenu">
+      <button class="avatar hide" id="userBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Account"><span id="avatarLetter">?</span></button>
+      <div class="menu" id="userMenu" hidden>
+        <div class="menu-who" id="whoami"></div>
+        <button class="btn alt" id="pwBtn" type="button">Change password</button>
+        <button class="btn alt" id="installBtn" type="button" hidden>Install app</button>
+        <button class="btn alt" id="logoutBtn" type="button">Sign out</button>
+      </div>
+    </div>
   </div>
 </header>
 <div id="pwBanner" hidden>
@@ -290,6 +326,7 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
     <p><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--mute)"></span></p>
   </section>
   <section id="add" hidden>
+    <div id="aeEditBar" class="hide"><span id="aeEditText"></span><button class="btn alt" id="aeEditCancel" type="button">Cancel edit</button></div>
     <div class="panel">
       <label class="f">Bank SMS (paste here and the form fills itself)
         <textarea id="aeSms" rows="4" placeholder="Paste the full bank SMS here..."></textarea>
@@ -541,13 +578,13 @@ function renderRecords() {
   $('filtHint').textContent = nAct ? nAct + ' active' : 'none active';
   $('sumHint').textContent = view.length + ' rows · Net ' + money(inc - exp - feeCol) + ' SAR';
   const hasUrl = rows.some(r => r.url);
-  const head = '<tr><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
-  if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="14" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
+  const head = '<tr><th></th><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th>' + (hasUrl ? '<th>Edit</th>' : '') + '</tr>';
+  if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="15" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
   const body = view.slice(0, shown).map(r => {
     const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
     const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
     const sign = r.op2 === 'Incomes' ? '+' : (r.op2 === 'Expenses' ? '-' : '');
-    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td style="color:var(--text-subtle);font-size:12px">' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + sign + money(r.amt) + '</td><td class="n" style="color:var(--text-muted)">' + (r.fee ? money(r.fee) : '—') + '</td><td class="n" style="color:#0284c7;font-weight:600">' + (r.cbx ? '+' + money(r.cbx) : '—') + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" style="color:var(--primary);font-weight:600">edit</a>' : '') + '</td>' : '') + '</tr>';
+    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td class="act"><button class="rowbtn" data-edit="' + r.r + '" type="button">Edit</button><button class="rowbtn del" data-del="' + r.r + '" type="button">Delete</button></td><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td style="color:var(--text-subtle);font-size:12px">' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + sign + money(r.amt) + '</td><td class="n" style="color:var(--text-muted)">' + (r.fee ? money(r.fee) : '—') + '</td><td class="n" style="color:#0284c7;font-weight:600">' + (r.cbx ? '+' + money(r.cbx) : '—') + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td>' + (hasUrl ? '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" style="color:var(--primary);font-weight:600">edit</a>' : '') + '</td>' : '') + '</tr>';
   }).join('');
   $('tbl').innerHTML = head + body;
   $('more').hidden = view.length <= shown; $('more').textContent = 'Show 200 more (' + (view.length - shown) + ' left)';
@@ -723,7 +760,11 @@ function showTab(t) {
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
 $('status').onclick = () => { showTab('records'); $('recPanel').open = true; };
 $('reload').onclick = () => load(true);
-$('tbl').onclick = e => { const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); } };
+$('tbl').onclick = e => {
+  const b = e.target.closest('button[data-edit],button[data-del]');
+  if (b) { const row = rows.find(x => x.r === +(b.dataset.edit || b.dataset.del)); if (row) { if (b.dataset.edit) editEntry(row); else deleteEntry(row); } return; }
+  const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); }
+};
 ['fOp', 'fDet', 'fSal', 'fCat', 'fAcc'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
 $('fQ').oninput = debounce(() => { shown = 200; renderRecords(); }, 200);
 $('more').onclick = () => { shown += 200; renderRecords(); };
@@ -1010,7 +1051,7 @@ function aeApplySms(r) {
   st.style.color = notes ? 'var(--warn)' : 'var(--pos)';
   st.textContent = 'Form filled from the SMS. Check the values, then submit.' + (notes ? ' ' + notes : '');
 }
-let aeT1 = null, aeT2 = null;
+let aeT1 = null, aeT2 = null, aeEdit = null;   // aeEdit = {row, ts} while an existing entry is being edited
 function aeOnSms(delay) {
   clearTimeout(aeT1);
   aeT1 = setTimeout(() => {
@@ -1047,6 +1088,7 @@ $('aePasteSms').onclick = () => aePaste('aeSms', aeOnSms);
 $('aePasteCb').onclick = () => aePaste('aeCbSms', aeOnCbSms);
 
 function aeReset() {
+  aeEdit = null; aeEditUi();
   $('aeSms').value = ''; $('aeSmsStatus').textContent = ''; $('aeErr').textContent = '';
   aeDefaults(); aeRefresh();
 }
@@ -1079,12 +1121,30 @@ $('aeSave').onclick = () => {
     other2: s.dep && $('aeDep').value === 'Other' ? $('aeO2').value.trim() : '',
     amount: $('aeAmt').value, date: $('aeDate').value, h: String(+hh), m: String(+mm),
     sms: $('aeSms').value.trim(),
-    extras: [$('aeExtras').value.trim(), s.cb ? $('aeCb').value : ''].filter(Boolean).join(' '),
+    extras: aeEdit ? $('aeExtras').value.trim() : [$('aeExtras').value.trim(), s.cb ? $('aeCb').value : ''].filter(Boolean).join(' '),
     details: $('aeDet').value,
     cbAmount: s.cb ? $('aeCbAmt').value : '',
     cbSms: s.cb ? $('aeCbSms').value.trim() : ''
   };
   $('aeSave').disabled = true; $('aeMsg').style.color = 'var(--mute)'; $('aeMsg').textContent = 'Saving…';
+  if (aeEdit) {
+    const target = rows.find(x => x.r === aeEdit.row), n = aeEdit.row;
+    google.script.run.withSuccessHandler(res => {
+      if (target) {
+        Object.assign(target, {wd: d.withdrawn, dep: d.deposited, o1: d.other1, o2: d.other2, op: res.op, amt: +d.amount, date: d.date,
+          h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0, amt2: +d.cbAmount || 0, cbp: +d.cbAmount || 0, sms: d.sms, sms2: d.cbSms});
+        target.op2 = normOp(target);
+        rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
+        linkCb(); refreshAccFilter(); renderAll();
+      }
+      aeReset(); showTab('records'); setSync('Row ' + n + ' updated. Syncing…'); load(true);
+      $('aeSave').disabled = false;
+    }).withFailureHandler(e => {
+      $('aeSave').disabled = false;
+      $('aeMsg').style.color = 'var(--neg)'; $('aeMsg').textContent = 'Save failed: ' + (e && e.message || e);
+    }).dashUpdateEntry(aeEdit.row, aeEdit.ts, d);
+    return;
+  }
   google.script.run.withSuccessHandler(res => {
     const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
       date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
@@ -1101,11 +1161,69 @@ $('aeSave').onclick = () => {
     $('aeMsg').style.color = 'var(--neg)'; $('aeMsg').textContent = 'Save failed: ' + (e && e.message || e);
   }).dashAddEntry(d);
 };
+
+/* ---------- Edit / delete an entry from the Records table ---------- */
+function aeEditUi() {
+  $('aeEditBar').classList.toggle('hide', !aeEdit);
+  if (aeEdit) $('aeEditText').textContent = 'Editing row ' + aeEdit.row + '. Change what you need, then press Save changes.';
+  $('aeSave').textContent = aeEdit ? 'Save changes' : 'Submit entry';
+}
+function editEntry(r) {
+  showTab('add');
+  aeReset();
+  const setSel = (id, v) => { const el = $(id); v = String(v == null ? '' : v); if (v && ![...el.options].some(o => o.value === v)) el.add(new Option(v, v)); el.value = v; };
+  const type = r.op === 'Refund' ? 'Refund' : (r.op2 === 'Incomes' ? 'Incomes' : 'Other');
+  $('aeType').value = type;
+  if (type === 'Other') {
+    $('aeOp').value = r.op2 === 'Between Acounts' ? 'Between Acounts' : 'Expenses';
+    setSel('aeWd', r.wd); $('aeO1').value = r.o1 || '';
+    setSel('aeFee', r.fee ? String(r.fee) : '0');
+  }
+  if (type !== 'Other' || r.op2 === 'Between Acounts') { setSel('aeDep', r.dep); $('aeO2').value = r.o2 || ''; }
+  $('aeAmt').value = String(r.amt); $('aeDate').value = r.date || '';
+  $('aeH').value = String(r.h); $('aeM').value = String(r.m);
+  $('aeSms').value = r.sms || ''; $('aeExtras').value = r.ex || '';
+  setSel('aeDet', r.det);
+  const cb = cbp(r);
+  if (cb > 0) {                                  // reveal the cash back fields; the % label only shows them (it is not added to Extras again)
+    const rate = [['0.7%', 0.007], ['5%', 0.05], ['11%', 0.11]].find(x => Math.abs(r.amt * x[1] - cb) <= 0.03);
+    $('aeCb').value = rate ? rate[0] : '5%';
+    $('aeCbAmt').value = String(cb); $('aeCbSms').value = r.sms2 || '';
+  }
+  aeEdit = {row: r.r, ts: r.ts};
+  aeRefresh(); aeEditUi();
+  $('aeMsg').textContent = '';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+$('aeEditCancel').onclick = () => { aeReset(); $('aeMsg').textContent = ''; };
+
+function deleteEntry(r) {
+  const what = 'Row ' + r.r + ' · ' + (r.date || '') + ' · ' + (r.wd || r.dep || '') + ' · ' + money(r.amt) + ' SAR' + (r.det ? ' · ' + r.det : '');
+  if (!confirm('Delete this entry from the "Entries" sheet?\n\n' + what + '\n\nThis cannot be undone here. The sheet\'s version history can restore it.')) return;
+  setSync('Deleting…');
+  google.script.run.withSuccessHandler(() => {
+    if (aeEdit) aeReset();                       // rows below move up, so an open edit would point at the wrong row
+    setSync('Deleted row ' + r.r + '. Reloading…'); load(true);
+  }).withFailureHandler(e => {
+    setSync(''); $('err').style.display = 'block'; $('err').textContent = 'Delete failed: ' + (e && e.message || e);
+  }).dashDeleteEntry(r.r, r.ts);
+}
+
 aeDefaults(); aeRefresh();
 
 
 /* ---------- Login ---------- */
-function showWho() { const on = !!localStorage.getItem('mb_session'); $('whoami').textContent = localStorage.getItem('mb_user') || ''; $('logoutBtn').classList.toggle('hide', !on); $('pwBtn').classList.toggle('hide', !on); }
+function showWho() {
+  const on = !!localStorage.getItem('mb_session'), u = localStorage.getItem('mb_user') || '';
+  $('whoami').textContent = u ? 'Signed in as ' + u : '';
+  $('avatarLetter').textContent = (u[0] || '?').toUpperCase();
+  $('userBtn').classList.toggle('hide', !on);
+  if (!on) $('userMenu').hidden = true;
+}
+$('userBtn').onclick = e => { e.stopPropagation(); const m = $('userMenu'); m.hidden = !m.hidden; $('userBtn').setAttribute('aria-expanded', String(!m.hidden)); };
+document.addEventListener('click', e => { if (!e.target.closest('.usermenu')) $('userMenu').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('userMenu').hidden = true; });
+$('userMenu').addEventListener('click', () => setTimeout(() => { $('userMenu').hidden = true; }, 0));
 $('loginForm').onsubmit = async ev => {
   ev.preventDefault();
   const btn = $('loginBtn'); btn.disabled = true; $('loginMsg').textContent = '';

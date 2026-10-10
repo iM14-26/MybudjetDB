@@ -130,7 +130,7 @@ function dashReadSheet_() {
       h: dashNum_(g(C.h)), m: dashNum_(g(C.m)), ex: dashStr_(g(C.ex)),
       det: dashStr_(g(C.det)), fee: dashNum_(g(C.fee)), amt2: dashNum_(g(C.amt2)),
       cbp: cbIdx < v.length ? dashNum_(v[cbIdx]) : 0,
-      sms: dashStr_(g(C.sms)), url: dashStr_(g(C.url)),
+      sms: dashStr_(g(C.sms)), sms2: dashStr_(g(C.sms2)), o1: dashStr_(g(C.o1)), o2: dashStr_(g(C.o2)), url: dashStr_(g(C.url)),
       cat: dashStr_(g(C.cat)), sub: dashStr_(g(C.sub))
     });
   }
@@ -287,13 +287,87 @@ function setSecretPinNow() {
   Logger.log('PIN saved.');
 }
 
+/* ---------------- Edit / delete an entry ---------------- */
+/** Makes sure row `row` of Entries is still the entry the page is showing (same timestamp), so a stale page can never change or delete the wrong row. */
+function dashCheckRow_(sh, C, row, ts, tz) {
+  row = parseInt(row, 10);
+  if (!(row >= 2) || row > sh.getLastRow()) throw new Error('That row no longer exists. Press Reload data.');
+  const tsv = C.ts >= 0 ? sh.getRange(row, C.ts + 1).getValue() : '';
+  const cur = tsv instanceof Date ? Utilities.formatDate(tsv, tz, 'yyyy-MM-dd HH:mm:ss') : dashStr_(tsv);
+  if (String(ts || '') !== cur) throw new Error('This row changed in the sheet. Press Reload data and try again.');
+  return row;
+}
+
+/** Changes the form fields of an existing entry. Only those cells are written, so Timestamp, Category, Sub-category, the form edit link and any formulas stay untouched. */
+function dashUpdateEntry(row, ts, d) {
+  d = d || {};
+  const amount = parseFloat(d.amount), h = parseInt(d.h, 10), m = parseInt(d.m, 10);
+  if (!(amount > 0)) throw new Error('Amount must be a number above 0.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date))) throw new Error('Date is missing or invalid.');
+  if (!(h >= 0 && h <= 23) || !(m >= 0 && m <= 59)) throw new Error('Hour or minute is invalid.');
+  if (d.type === 'Other' && !d.withdrawn) throw new Error('Withdrawn account is missing.');
+  if ((d.type === 'Incomes' || d.type === 'Refund' || d.operationType === 'Between Acounts') && !d.deposited)
+    throw new Error('Deposited account is missing.');
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = SpreadsheetApp.openById(DASH_SS_ID);
+    const sh = dashSheet_(ss), tz = ss.getSpreadsheetTimeZone();
+    const C = dashColumns_(sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
+    row = dashCheckRow_(sh, C, row, ts, tz);
+
+    const op = d.type === 'Other' ? (d.operationType || 'Expenses') : d.type;
+    const cb = d.cbAmount !== '' && d.cbAmount !== undefined && d.cbAmount !== null ? parseFloat(d.cbAmount) : '';
+    const cbOk = cb !== '' && !isNaN(cb);
+    const put = function (k, v) { if (C[k] >= 0) sh.getRange(row, C[k] + 1).setValue(v); };
+    put('wd', d.withdrawn || ''); put('o1', d.other1 || '');
+    put('op', op);
+    put('dep', d.deposited || ''); put('o2', d.other2 || '');
+    put('amt', amount);
+    put('date', Utilities.parseDate(d.date, tz, 'yyyy-MM-dd'));
+    put('h', h); put('m', m);
+    put('sms', d.sms || ''); put('ex', d.extras || ''); put('det', d.details || '');
+    put('fee', d.type === 'Other' && d.fees !== '' ? parseFloat(d.fees) || 0 : '');
+    put('amt2', cbOk ? cb : ''); put('sms2', d.cbSms || '');
+    const pIdx = dashColIndex_(DASH_CB_COL);                       // column P: written or cleared like the 2nd Amount column, unless it holds a formula
+    if (pIdx !== C.amt2 && pIdx < sh.getLastColumn() && !sh.getRange(row, pIdx + 1).getFormula()) sh.getRange(row, pIdx + 1).setValue(cbOk ? cb : '');
+
+    SpreadsheetApp.flush();
+    dashCacheClear_();
+    return { row: row, ts: String(ts), op: op };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Deletes row `row` from the Entries sheet. Rows below move up, so the page reloads its data afterwards. */
+function dashDeleteEntry(row, ts) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = SpreadsheetApp.openById(DASH_SS_ID);
+    const sh = dashSheet_(ss), tz = ss.getSpreadsheetTimeZone();
+    const C = dashColumns_(sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
+    row = dashCheckRow_(sh, C, row, ts, tz);
+    sh.deleteRow(row);
+    SpreadsheetApp.flush();
+    dashCacheClear_();
+    return { deleted: row };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 const DASH_API_ = {
   dashGetData: dashGetData,
   dashGetAccounts: dashGetAccounts,
   secretReveal: secretReveal,
   dashSaveCfg: dashSaveCfg,
   dashSaveCats: dashSaveCats,
-  dashAddEntry: dashAddEntry
+  dashAddEntry: dashAddEntry,
+  dashUpdateEntry: dashUpdateEntry,
+  dashDeleteEntry: dashDeleteEntry
 };
 
 function dashJson_(obj) {
