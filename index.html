@@ -11,8 +11,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MyBudjet Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance,add_circle,label,pie_chart,receipt_long,sync&display=block" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 :root{--bg-page:#f8fafc;--bg-card:#fff;--bg-card-subtle:#f1f5f9;--border:#e2e8f0;--border-focus:#0d9488;
 --text-main:#0f172a;--text-muted:#64748b;--text-subtle:#94a3b8;--primary:#0f766e;--primary-hover:#115e59;--primary-soft:#f0fdfa;--primary-border:#ccfbf1;--primary-text:#115e59;
@@ -111,6 +111,7 @@ td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',
     <div class="brand-text-block"><h1>MyBudjet ledger</h1><span class="brand-sub">Financial Intelligence &amp; Multi-Account Bookkeeping</span></div>
   </div>
   <div class="header-actions">
+    <span id="sync" style="color:var(--text-muted);font-size:12px"></span>
     <button class="btn" id="installBtn" hidden>Install app</button>
     <button class="btn alt" id="reload"><span class="material-symbols-outlined" style="font-size:16px">sync</span> Reload data</button>
     <div id="status" title="Open verification"><span class="status-indicator-dot"></span><span>Loading…</span></div>
@@ -298,6 +299,7 @@ const SALARY = ['26/02/26','26/03/26','27/04/26','27/05/26','28/06/26','27/07/26
 /* ---------- helpers ---------- */
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const debounce = (f, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
 const money = n => (n || 0).toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const dmyToIso = s => { const [d, m, y] = s.split('/'); return '20' + y + '-' + m + '-' + d; };
 const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -350,9 +352,24 @@ function accountNames() {
 }
 
 /* ---------- load ---------- */
+const CACHE_KEY = 'mb_data_v1';
+function loadCached() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return c && Array.isArray(c.rows) ? c : null; } catch (e) { return null; } }
+function saveCached(d) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) { try { localStorage.removeItem(CACHE_KEY); } catch (_) {} } }
+const setSync = t => { $('sync').textContent = t || ''; };
+let firstLoad = true;
 function load() {
-  $('loading').hidden = false; $('err').style.display = 'none';
-  google.script.run.withSuccessHandler(init).withFailureHandler(showErr).dashGetData();
+  $('err').style.display = 'none';
+  const c = firstLoad ? loadCached() : null; firstLoad = false;
+  const have = !!c || rows.length > 0;
+  if (c) init(c);                              // saved copy: the app is usable immediately
+  if (have) setSync('Updating…'); else $('loading').hidden = false;
+  google.script.run.withSuccessHandler(d => {
+    if (d && Array.isArray(d.rows)) saveCached(d);
+    init(d); setSync(d && Array.isArray(d.rows) ? 'Updated ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '');
+  }).withFailureHandler(e => {
+    if (have) { setSync(''); $('err').style.display = 'block'; $('err').textContent = 'Could not refresh: ' + (e && e.message || e) + ' Showing saved data.'; }
+    else showErr(e);
+  }).dashGetData();
 }
 function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
@@ -363,16 +380,22 @@ function init(d) {
   // Sheet 2: sorted by action date, then H, then M, then timestamp
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
   linkCb(); aeRefillAccounts();
-  pend = {};
   $('loading').hidden = true;
   if (d.missing && d.missing.length) {
     const need = d.missing.filter(k => !['url', 'cat', 'sub', 'sms2', 'o1', 'o2'].includes(k));
     if (need.length) { $('err').style.display = 'block'; $('err').textContent = 'Header not found in Responses: ' + need.join(', '); }
   }
-  buildFilters(); renderAll();
+  const keep = ['fOp', 'fDet', 'fSal', 'fCat'].map(id => [id, $(id).value]);
+  buildFilters(); keep.forEach(([id, v]) => { if ([...$(id).options].some(o => o.value === v)) $(id).value = v; });
+  renderAll();
   showTab(document.querySelector('#tabs .on').dataset.t);
 }
-function renderAll() { renderRecords(); renderAccounts(); renderCats(); renderCatView(); }
+let dirty = {};
+function renderLazy(t) { if (!dirty[t]) return; dirty[t] = false; if (t === 'cats') renderCats(); else if (t === 'catview') renderCatView(); }
+function renderAll() {                           // Records and the status pill now; the two category tabs when opened
+  renderRecords(); renderAccounts(); dirty = {cats: true, catview: true};
+  const cur = document.querySelector('#tabs .on'); if (cur) renderLazy(cur.dataset.t);
+}
 
 /* ---------- Sheet 3: filter ---------- */
 function opt(list, sel) { return list.map(x => '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>').join(''); }
@@ -588,7 +611,7 @@ function renderCatView() {
     sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
     (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '');
 }
-$('cvQ').oninput = () => renderCatView();
+$('cvQ').oninput = debounce(() => renderCatView(), 200);
 $('catTabs').onclick = e => { const c = e.target.dataset.c; if (c !== undefined) { catTab = c; subTab = '*'; renderCatView(); } };
 $('subTabs').onclick = e => { const s = e.target.dataset.s; if (s !== undefined) { subTab = s; renderCatView(); } };
 
@@ -617,6 +640,7 @@ function setPend(rn, k, v) {
 function showTab(t) {
   ['records', 'accounts', 'catview', 'cats', 'add'].forEach(id => $(id).hidden = id !== t);
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  renderLazy(t);
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
 $('status').onclick = () => showTab('accounts');
@@ -624,7 +648,7 @@ $('reload').onclick = load;
 $('foldCb').onchange = () => { shown = 200; renderRecords(); };
 $('tbl').onclick = e => { const a = e.target.dataset.acc; if (a) { $('fAcc').value = a; shown = 200; renderRecords(); } };
 ['fOp', 'fDet', 'fSal', 'fCat', 'fAcc'].forEach(id => $(id).onchange = () => { shown = 200; renderRecords(); });
-$('fQ').oninput = () => { shown = 200; renderRecords(); };
+$('fQ').oninput = debounce(() => { shown = 200; renderRecords(); }, 200);
 $('more').onclick = () => { shown += 200; renderRecords(); };
 function chipClick(set, id) {
   $(id).onclick = e => {
