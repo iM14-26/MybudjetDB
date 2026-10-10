@@ -166,6 +166,10 @@ td.act{white-space:nowrap}
   #pwBanner{margin:10px 12px 0}
 }
 @media (max-width:430px){ .brand-text-block{display:none} }
+#setTabs{display:flex;gap:4px;margin:14px 0 4px;border-bottom:1px solid var(--border)}
+#setTabs button{border:0;background:none;padding:9px 16px;font:inherit;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+#setTabs button:hover{color:var(--text-main)}
+#setTabs button.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
 </style>
 </head>
 <body>
@@ -229,7 +233,7 @@ td.act{white-space:nowrap}
   <section id="records" hidden>
     <details class="panel" id="recPanel">
       <summary class="fsum" style="flex-wrap:wrap"><b>Filters, totals &amp; verification</b><span class="hint" id="filtHint"></span><span class="hint" id="sumHint"></span><span class="dot ok" id="verifDot"></span><span class="hint" id="verifBadge"></span></summary>
-      <div class="group-title" style="margin-top:14px">Filters</div>
+      <div class="group-title" style="margin-top:14px">Filters <button class="btn alt" id="clrAll" type="button" style="padding:3px 10px;font-size:12px;text-transform:none;letter-spacing:0">Clear all filters</button></div>
       <div class="controls">
         <label class="f">Operation<select id="fOp"></select></label>
         <label class="f">Details<select id="fDet"></select></label>
@@ -252,9 +256,12 @@ td.act{white-space:nowrap}
   </section>
 
   <section id="accounts" hidden>
-    <details class="panel" id="accTools">
-      <summary class="fsum"><b>Columns &amp; add account</b><span class="hint" id="accColsHint"></span></summary>
-      <div class="group-title" style="margin-top:14px">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
+    <details class="panel" id="setBox">
+      <summary class="fsum"><b>Settings</b><span class="hint" id="accColsHint"></span></summary>
+      <nav id="setTabs"><button type="button" data-t="filter" class="on">Filter</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button></nav>
+      <div id="setFilter">
+      <div class="inline" style="margin-top:14px;gap:12px"><button class="btn alt" id="accClearAll" type="button">Cancel all filters</button><span style="color:var(--text-muted);font-size:12.5px">Shows every column and clears the Records filters</span></div>
+      <div class="group-title" style="margin-top:18px">Columns <button class="link" id="accColsAll" type="button">show all</button></div>
       <div class="chips" id="accCols"></div>
       <div class="group-title" style="margin-top:20px">Add account</div>
       <div class="inline" style="margin-top:8px">
@@ -263,9 +270,8 @@ td.act{white-space:nowrap}
         <button class="btn alt" id="addAcc">Add account</button>
         <span id="accMsg" style="color:var(--mute)"></span>
       </div>
-    </details>
-    <details class="panel" id="shareBox">
-      <summary class="fsum"><b>Share account details</b><span class="hint" id="shHint">Send your bank accounts on WhatsApp</span></summary>
+    </div>
+      <div id="setAccts" class="hide"><div id="shHint" style="color:var(--text-muted);margin-bottom:6px">Send your bank accounts on WhatsApp</div>
       <div class="controls" style="margin-top:14px">
         <label class="f">Language<select id="shLang"><option value="ar">العربية (Arabic)</option><option value="en">English</option></select></label>
         <label class="f">Name (Arabic)<input type="text" id="shNameAr" dir="rtl"></label>
@@ -282,9 +288,8 @@ td.act{white-space:nowrap}
         <button class="btn alt" id="shCopy" type="button">Copy</button>
         <span id="shMsg" style="color:var(--text-muted)"></span>
       </div>
-    </details>
-    <details class="panel" id="secBox">
-      <summary class="fsum"><b>Private data</b><span class="hint" id="secHint">PIN required · shown for 30 seconds</span></summary>
+    </div>
+      <div id="setCards" class="hide"><div id="secHint" style="color:var(--text-muted);margin-bottom:6px">PIN required · shown for 30 seconds</div>
       <div class="inline" id="secAsk" style="margin-top:14px">
         <label class="f">PIN<input type="password" id="secPin" inputmode="numeric" autocomplete="new-password" maxlength="12" style="max-width:170px"></label>
         <button class="btn" id="secShow" type="button">Show</button>
@@ -296,6 +301,7 @@ td.act{white-space:nowrap}
         <div class="tablewrap"><table id="secTbl"></table></div>
         <p style="color:var(--text-muted);font-size:12.5px;margin:10px 0 0">Only the first row can be copied.</p>
       </div>
+    </div>
     </details>
     <div class="tablewrap"><table id="acc"></table></div>
   </section>
@@ -695,6 +701,7 @@ $('accCols').onclick = e => {
   try { localStorage.setItem('mb_acc_hide', JSON.stringify([...accHide])); } catch (er) { /* ignore */ }
   applyAccCols();
 };
+$('accClearAll').onclick = () => { $('accColsAll').onclick(); clearRecordFilters(); };
 $('accColsAll').onclick = () => { accHide.clear(); try { localStorage.removeItem('mb_acc_hide'); } catch (er) { /* ignore */ } applyAccCols(); };
 
 
@@ -777,6 +784,11 @@ function chipClick(set, id) {
 }
 chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD');
 $('clrP').onclick = () => { chipP.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
+function clearRecordFilters() {          // every selected filter at once: the five lists, the search box and both chip groups
+  chipP.clear(); chipD.clear(); $('fQ').value = '';
+  buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); shown = 200; renderRecords();
+}
+$('clrAll').onclick = clearRecordFilters;
 $('clrD').onclick = () => { chipD.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
 $('addAcc').onclick = () => {
   const n = $('newAcc').value.trim(), msg = $('accMsg');
@@ -1334,7 +1346,6 @@ function shLoad() {
     shRender(); shMsg('');
   }).withFailureHandler(e => { shMsg(shAcc ? 'Could not refresh: ' + (e && e.message || e) + ' Showing saved accounts.' : 'Could not read the accounts: ' + (e && e.message || e), true); if (shAcc) shRender(); }).dashGetAccounts();
 }
-$('shareBox').addEventListener('toggle', () => { if ($('shareBox').open) shLoad(); });
 $('shList').onchange = e => {
   const iban = e.target.dataset.iban; if (iban === undefined) return;
   const c = shCfg(), i = c.sel.indexOf(iban);
@@ -1376,14 +1387,14 @@ function secShowData(d) {
   secVals = (d && d.values) || [];
   const first = 17;                     // the sheet row of the first line
   $('secTbl').innerHTML = secVals.map((row, i) =>
-    '<tr' + (i ? ' class="nocopy" oncontextmenu="return false"' : '') + '><td class="rn nocopy">Row ' + (first + i) + '</td>' +
+    '<tr' + (i ? ' class="nocopy" oncontextmenu="return false"' : '') + '>' +
     row.map((v, j) => '<td>' + esc(v) + (i === 0 && v ? '<button class="btn alt seccopy" type="button" data-c="' + j + '">Copy</button>' : '') + '</td>').join('') + '</tr>').join('');
   $('secAsk').classList.add('hide'); $('secData').classList.remove('hide'); $('secPin').value = ''; secSay('');
   secTotal = ((d && d.seconds) || 30) * 1000; secEnd = Date.now() + secTotal;
   clearInterval(secTick);
   secTick = setInterval(() => {
     const left = secEnd - Date.now();
-    if (left <= 0 || $('accounts').hidden) { secHide(left <= 0 ? 'Hidden. Enter the PIN to show it again.' : ''); return; }
+    if (left <= 0 || $('accounts').hidden || $('setCards').classList.contains('hide')) { secHide(left <= 0 ? 'Hidden. Enter the PIN to show it again.' : ''); return; }
     $('secTime').textContent = 'Hides in ' + Math.ceil(left / 1000) + ' s';
     $('secBar').style.width = (left / secTotal * 100) + '%';
   }, 250);
@@ -1401,7 +1412,17 @@ function secReveal() {
 $('secShow').onclick = secReveal;
 $('secPin').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); secReveal(); } });
 $('secHide').onclick = () => secHide('');
-$('secBox').addEventListener('toggle', () => { if (!$('secBox').open) secHide(''); else $('secPin').focus(); });
+/* ---------- Settings: sub-tabs (Filter, Accounts #, Cards) ---------- */
+let setTab = 'filter';
+function showSetTab(t) {
+  setTab = t;
+  [['filter', 'setFilter'], ['accts', 'setAccts'], ['cards', 'setCards']].forEach(([k, id]) => $(id).classList.toggle('hide', k !== t));
+  document.querySelectorAll('#setTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  if (t !== 'cards') secHide('');                    // the private data never stays on screen when you leave its tab
+  if (t === 'accts') shLoad(); else if (t === 'cards') setTimeout(() => $('secPin').focus(), 50);
+}
+$('setTabs').onclick = e => { const b = e.target.closest('button[data-t]'); if (b) showSetTab(b.dataset.t); };
+$('setBox').addEventListener('toggle', () => { if (!$('setBox').open) secHide(''); else showSetTab(setTab); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) secHide(''); });
 window.addEventListener('pagehide', () => secHide(''));
 $('secTbl').onclick = async e => {      // copying is offered for the first row only
