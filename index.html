@@ -102,8 +102,8 @@ td.acc:hover{color:var(--primary);text-decoration:underline}
 .dot.bad{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
 .empty{padding:36px 20px;text-align:center;color:var(--text-muted);font-style:italic}
 #err{display:none;background:var(--neg-soft);border:1px solid var(--neg-border);color:var(--neg);padding:12px 18px;border-radius:var(--radius-sm);margin-bottom:16px;font-weight:500}
-#loading{padding:60px;text-align:center;color:var(--text-muted);font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.spinner{width:28px;height:28px;border:3px solid rgba(15,118,110,.15);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+#loading{padding:8px 14px;margin-bottom:12px;color:var(--text-muted);font-weight:500;font-size:12.5px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.spinner{width:14px;height:14px;border:2px solid rgba(15,118,110,.15);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 td input[type=number]{width:120px;text-align:right;font-family:'JetBrains Mono',monospace;padding:4px 8px}
@@ -228,7 +228,7 @@ td.act{white-space:nowrap}
 </nav>
 <main>
   <div id="err"></div>
-  <div id="loading"><div class="spinner"></div><span>Reading the Responses sheet…</span></div>
+  <div id="loading" hidden><div class="spinner"></div><span>Updating from the sheet in the background. You can already add entries.</span></div>
 
   <section id="records" hidden>
     <details class="panel" id="recPanel">
@@ -302,6 +302,7 @@ td.act{white-space:nowrap}
       </div>
     </div>
     </details>
+    <div id="accStale" class="hide" style="color:var(--text-muted);font-size:12.5px;margin:0 0 8px"></div>
     <div class="tablewrap"><table id="acc"></table></div>
   </section>
 
@@ -448,7 +449,9 @@ const PERIODS = SALARY.map((s, i) => {
   return {label: s + '  →  ' + end.split('-').reverse().join('/'), start, end};
 });
 
-let rows = [], cfg = {}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 200, catTab = '', subTab = '*';
+let dataReady = false;                    // true once the ledger (saved copy or fresh read) is in memory; balances are only computed after that
+let localAdds = [];                       // entries saved while the ledger is still loading
+let rows = [], cfg = {opening: {}, subs: {}, accounts: []}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 200, catTab = '', subTab = '*';
 
 function normOp(r) {
   const o = (r.op || '').toLowerCase();
@@ -484,6 +487,18 @@ function sessionAlive() {               // reads the expiry inside the sign-in t
   const t = localStorage.getItem('mb_session'); if (!t) return false;
   try { return +atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')).split('|')[1] > Date.now(); } catch (e) { return false; }
 }
+const CREDIT_KEY = 'mb_credit_v1';        // Account Credit table only (no transactions); removed when you sign out
+function saveCredit(s) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(s)); } catch (e) { /* storage full: skip */ } }
+function renderCreditSnapshot() {         // shows the last known balances at once, before any data has arrived
+  let s; try { s = JSON.parse(localStorage.getItem(CREDIT_KEY)); } catch (e) { s = null; }
+  if (!s || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
+  const td = v => '<td class="n">' + money(v) + '</td>', last = r => r[r.length - 1];
+  $('acc').innerHTML = '<tr>' + s.head.map((c, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(c) + '</th>').join('') + '</tr>' +
+    s.rows.map(r => '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -1).map(td).join('') + '<td class="n" style="font-weight:600;color:' + (last(r) < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(last(r)) + '</td></tr>').join('') +
+    '<tr><td><b>Total</b></td>' + s.total.map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '</tr>';
+  $('accStale').textContent = 'Saved balances from ' + new Date(s.t).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ' · updating…';
+  $('accStale').classList.remove('hide');
+}
 function wipeSaved() { ['mb_data_v1', 'mb_share_accts_v1'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); }   // saved ledger copies go when the sign-in ends
 const setSync = t => { $('sync').textContent = t || ''; };
 let firstLoad = true;
@@ -502,15 +517,18 @@ function load(force) {
     else showErr(e);
   }).dashGetData(!!force);
 }
-function showErr(e) { $('loading').hidden = true; $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
+function showErr(e) { $('loading').hidden = true; $('accStale').textContent = $('accStale').textContent.replace('· updating…', '· could not update'); $('err').style.display = 'block'; $('err').textContent = 'Could not read the sheet: ' + (e && e.message || e); }
 function init(d) {
   if (!d || !Array.isArray(d.rows)) { showErr(new Error('The backend sent an empty reply. Press Reload.')); return; }
   cbInfo = d.cbCol || null;
   cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
+  localAdds = localAdds.filter(a => Date.now() - a.addedAt < 900000 && !rows.some(x => x.r === a.r && x.ts === a.ts));
+  localAdds.forEach(a => rows.push(a));       // a read that started before the save does not make the new entry disappear
   // Sheet 2: sorted by action date, then H, then M, then timestamp
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
   linkCb(); aeRefillAccounts();
+  dataReady = true;
   $('loading').hidden = true;
   if (d.missing && d.missing.length) {
     const need = d.missing.filter(k => !['url', 'cat', 'sub', 'sms2', 'o1', 'o2'].includes(k));
@@ -615,10 +633,12 @@ function calc() {
   return {A, t, bad};
 }
 function renderAccounts() {
+  if (!dataReady) return;                    // a half-loaded ledger would show (and save) wrong balances; the saved ones stay on screen
   const {A, t, bad} = calc();
   const names = Object.keys(A).sort();
   const S = {open: 0, dep: 0, out: 0, fd: 0, fc: 0, fa: 0, cx: 0, ce: 0, ca: 0, credit: 0};
   const KEYS = ['dep', 'out', 'fd', 'fc', 'fa', 'cx', 'ce', 'ca'];
+  const snap = [];
   const body = names.map(n => {
     const a = A[n], open = +cfg.opening[n] || 0;
     const v = {
@@ -633,6 +653,7 @@ function renderAccounts() {
     };
     const credit = open + v.dep - v.out - v.fa + v.ca;
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
+    snap.push([n, open].concat(KEYS.map(k => v[k]), [credit]));
     return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
       '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
@@ -642,6 +663,8 @@ function renderAccounts() {
     (body || '<tr><td colspan="11" class="empty">No accounts found in Responses.</td></tr>') +
     '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td></tr>';
   const sumOpen = S.open, sumCredit = S.credit;
+  $('accStale').classList.add('hide');
+  if (rows.length) saveCredit({t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
@@ -1159,13 +1182,12 @@ $('aeSave').onclick = () => {
     const r = {r: res.row, ts: res.ts, wd: d.withdrawn, dep: d.deposited, op: res.op, amt: +d.amount,
       date: d.date, h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0,
       amt2: +d.cbAmount || 0, cbp: +d.cbAmount || 0, sms: d.sms, url: '', cat: '', sub: ''};
-    r.op2 = normOp(r); rows.push(r);
+    r.op2 = normOp(r); r.addedAt = Date.now(); rows.push(r); localAdds.push(r);
     rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
-    linkCb(); refreshAccFilter();
-    renderAll();
+    if (dataReady) { linkCb(); refreshAccFilter(); renderAll(); }     // while the ledger is still loading the entry is kept aside and merged when it arrives
     aeReset();
     $('aeSave').disabled = false;
-    $('aeMsg').style.color = 'var(--pos)'; $('aeMsg').textContent = 'Saved to the sheet as row ' + res.row + '.';
+    $('aeMsg').style.color = 'var(--pos)'; $('aeMsg').textContent = 'Saved to the sheet as row ' + res.row + '.' + (dataReady ? '' : ' It will show in the lists when the ledger has loaded.');
   }).withFailureHandler(e => {
     $('aeSave').disabled = false;
     $('aeMsg').style.color = 'var(--neg)'; $('aeMsg').textContent = 'Save failed: ' + (e && e.message || e);
@@ -1252,7 +1274,7 @@ $('loginForm').onsubmit = async ev => {
   } catch (e) { $('loginMsg').textContent = e.message; }
   btn.disabled = false;
 };
-$('logoutBtn').onclick = () => { ['mb_session', 'mb_user', 'mb_pw_left', 'mb_pw_dismiss'].forEach(k => localStorage.removeItem(k)); wipeSaved(); location.reload(); };
+$('logoutBtn').onclick = () => { ['mb_session', 'mb_user', 'mb_pw_left', 'mb_pw_dismiss'].forEach(k => localStorage.removeItem(k)); wipeSaved(); try { localStorage.removeItem('mb_credit_v1'); } catch (e) { /* ignore */ } location.reload(); };
 showWho();
 
 /* ---------- Password: 90-day expiry, daily reminders in the last 7 days, change dialog ---------- */
@@ -1466,6 +1488,11 @@ async function pwaCheck() {
 }
 if (/[?&]pwa/.test(location.search)) setTimeout(pwaCheck, 3000);
 
+/* ---------- Instant start: the app is usable at once; the sheet is read in the background ---------- */
+buildFilters();                          // the filter lists must exist before the first rows are shown
+showTab(document.querySelector('#tabs .on').dataset.t);
+$('tbl').innerHTML = '<tr><td class="empty">Loading records…</td></tr>';
+renderCreditSnapshot();
 load();
 </script>
 </body>
