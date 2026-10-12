@@ -170,6 +170,16 @@ td.act{white-space:nowrap}
 #setTabs button{border:0;background:none;padding:9px 16px;font:inherit;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 #setTabs button:hover{color:var(--text-main)}
 #setTabs button.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.subrow{cursor:pointer}
+.subrow:hover td{background:#f8fafc}
+.subrow .caret{display:inline-block;width:1.1em;color:var(--text-muted)}
+.subrow .cnt{color:var(--text-subtle);font-size:11.5px;margin-left:6px}
+.subrow.open td{background:var(--primary-soft)}
+td.incm{color:var(--pos)} td.outc{color:var(--neg)}
+tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
+.subdetail>td{padding:0!important;background:var(--bg-page)}
+.nested{margin:10px 14px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow-x:auto}
+.nested th{position:static}
 </style>
 </head>
 <body>
@@ -310,8 +320,7 @@ td.act{white-space:nowrap}
   <section id="catview" hidden>
     <nav id="catTabs" style="padding:0;margin-bottom:12px;border:1px solid var(--rule);border-radius:6px"></nav>
     <div class="summary" id="catSum"></div>
-    <div class="chips" id="subTabs" style="margin:0 0 12px"></div>
-    <input type="search" id="cvQ" class="tsearch" placeholder="Search rows in this category…">
+    <input type="search" id="cvQ" class="tsearch" placeholder="Search sub-categories and rows in this category…">
     <div class="tablewrap"><table id="cvTbl"></table></div>
   </section>
 
@@ -452,7 +461,7 @@ const PERIODS = SALARY.map((s, i) => {
 
 let dataReady = false;                    // true once the ledger (saved copy or fresh read) is in memory; balances are only computed after that
 let localAdds = [];                       // entries saved while the ledger is still loading
-let rows = [], cfg = {opening: {}, subs: {}, accounts: []}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 10, catTab = '', subTab = '*';
+let rows = [], cfg = {opening: {}, subs: {}, accounts: []}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 10, catTab = '';
 
 function normOp(r) {
   const o = (r.op || '').toLowerCase();
@@ -729,35 +738,51 @@ $('accColsAll').onclick = () => { accHide.clear(); try { localStorage.removeItem
 
 /* ---------- Categories tab: one tab per category, sub-categories inside ---------- */
 const rowCat = r => catOf(r) || (needsCat(r) ? 'Uncategorized' : '');
+const cvOpen = new Set();               // unfolded sub-categories, remembered while you move between tabs
+const cvKey = s => catTab + '\u0001' + s;
 function renderCatView() {
   const groups = {};
   rows.forEach(r => { if (r.op2 === 'Between Acounts') return; const c = rowCat(r); if (c) (groups[c] = groups[c] || []).push(r); });
   const order = [...cats(), ...AUTO, ...Object.keys(groups).filter(k => !cats().includes(k) && !AUTO.includes(k) && k !== 'Uncategorized'), 'Uncategorized'];
   const names = order.filter((c, i) => groups[c] && order.indexOf(c) === i);
   if (!names.length) {
-    $('catTabs').innerHTML = ''; $('catSum').innerHTML = ''; $('subTabs').innerHTML = '';
+    $('catTabs').innerHTML = ''; $('catSum').innerHTML = '';
     $('cvTbl').innerHTML = '<tr><td class="empty">No categorized rows yet.</td></tr>'; return;
   }
-  if (!names.includes(catTab)) { catTab = names[0]; subTab = '*'; }
+  if (!names.includes(catTab)) catTab = names[0];
   $('catTabs').innerHTML = names.map(c => '<button data-c="' + esc(c) + '"' + (c === catTab ? ' class="on"' : '') + '>' + esc(c) + ' (' + groups[c].length + ')</button>').join('');
-  const list = groups[catTab], subMap = {};
-  list.forEach(r => (subMap[r.sub || ''] = subMap[r.sub || ''] || []).push(r));
-  if (subTab !== '*' && !(subTab in subMap)) subTab = '*';
-  const subNames = Object.keys(subMap).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
-  $('subTabs').innerHTML = '<button class="chip' + (subTab === '*' ? ' on' : '') + '" data-s="*">All (' + list.length + ')</button>' +
-    subNames.map(s => '<button class="chip' + (subTab === s ? ' on' : '') + '" data-s="' + esc(s) + '">' + esc(s || '(no sub-category)') + ' (' + subMap[s].length + ')</button>').join('');
   const cq = $('cvQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const sel = (subTab === '*' ? list : subMap[subTab]).filter(r => { if (!cq.length) return true; const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.det, r.cat, r.sub, r.ex].join(' ').toLowerCase(); return cq.every(w => s.includes(w)); }).slice().reverse();
-  const exp = sel.filter(r => r.op2 === 'Expenses').reduce((s, r) => s + r.amt, 0);
-  const inc = sel.filter(r => r.op2 === 'Incomes').reduce((s, r) => s + r.amt, 0);
-  $('catSum').innerHTML = '<span>' + esc(catTab) + (subTab !== '*' ? ' / ' + esc(subTab || '(no sub-category)') : '') + '</span><span>Rows <b>' + sel.length + '</b></span><span>Expenses <b>' + money(exp) + '</b></span><span>Incomes <b>' + money(inc) + '</b></span>';
-  $('cvTbl').innerHTML = '<tr><th>Row</th><th>Date</th><th>Operation</th><th>Account</th><th class="n">Amount</th><th>Details</th><th>Sub-category</th><th>Extras</th></tr>' +
-    sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
-    (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '');
+  const list = groups[catTab].filter(r => { if (!cq.length) return true; const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.det, r.cat, r.sub, r.ex].join(' ').toLowerCase(); return cq.every(w => s.includes(w)); });
+  const subMap = {};
+  list.forEach(r => (subMap[r.sub || ''] = subMap[r.sub || ''] || []).push(r));
+  const subNames = Object.keys(subMap).sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
+  const tot = rs => { let inc = 0, out = 0; rs.forEach(r => { if (r.op2 === 'Incomes') inc += r.amt; else if (r.op2 === 'Expenses') out += r.amt; }); return {inc, out, bal: inc - out}; };
+  const balCell = v => '<td class="n amt" style="color:' + (v < 0 ? 'var(--neg)' : 'var(--pos)') + '">' + money(v) + '</td>';
+  const T = tot(list);
+  $('catSum').innerHTML = '<span><span>' + esc(catTab) + '</span><b>' + subNames.length + ' sub-categor' + (subNames.length === 1 ? 'y' : 'ies') + '</b></span>' +
+    '<span style="border-left:3px solid var(--pos)"><span>Total income</span><b style="color:var(--pos)">+' + money(T.inc) + ' SAR</b></span>' +
+    '<span style="border-left:3px solid var(--neg)"><span>Total outcome</span><b style="color:var(--neg)">-' + money(T.out) + ' SAR</b></span>' +
+    '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>Balance</span><b>' + money(T.bal) + ' SAR</b></span>';
+  const detail = rs => {                 // the same table as before, newest first
+    const sel = rs.slice().reverse();
+    return '<div class="nested"><table><tr><th>Row</th><th>Date</th><th>Operation</th><th>Account</th><th class="n">Amount</th><th>Details</th><th>Sub-category</th><th>Extras</th></tr>' +
+      sel.slice(0, 300).map(r => '<tr class="' + (r.op2 === 'Incomes' ? 'inc' : 'exp') + '"><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.op2) + '</td><td>' + esc(r.wd || r.dep) + '</td><td class="n amt">' + money(r.amt) + '</td><td>' + esc(r.det) + '</td><td>' + esc(r.sub) + '</td><td>' + esc(r.ex) + '</td></tr>').join('') +
+      (sel.length > 300 ? '<tr><td colspan="8" class="empty">Showing the latest 300 of ' + sel.length + ' rows.</td></tr>' : '') + '</table></div>';
+  };
+  $('cvTbl').innerHTML = '<tr><th>Sub-category</th><th class="n">Income</th><th class="n">Outcome</th><th class="n">Balance</th></tr>' +
+    (subNames.length ? subNames.map(s => {
+      const t = tot(subMap[s]), open = cvOpen.has(cvKey(s));
+      return '<tr class="subrow' + (open ? ' open' : '') + '" data-s="' + esc(s) + '" tabindex="0" role="button" aria-expanded="' + open + '"><td><span class="caret">' + (open ? '▾' : '▸') + '</span><b>' + esc(s || '(no sub-category)') + '</b><span class="cnt">' + subMap[s].length + (subMap[s].length === 1 ? ' row' : ' rows') + '</span></td>' +
+        '<td class="n incm">' + (t.inc ? money(t.inc) : '—') + '</td><td class="n outc">' + (t.out ? money(t.out) : '—') + '</td>' + balCell(t.bal) + '</tr>' +
+        (open ? '<tr class="subdetail"><td colspan="4">' + detail(subMap[s]) + '</td></tr>' : '');
+    }).join('') + '<tr class="cvtotal"><td>Total</td><td class="n incm">' + money(T.inc) + '</td><td class="n outc">' + money(T.out) + '</td>' + balCell(T.bal) + '</tr>'
+    : '<tr><td colspan="4" class="empty">No rows match this search.</td></tr>');
 }
 $('cvQ').oninput = debounce(() => renderCatView(), 200);
-$('catTabs').onclick = e => { const c = e.target.dataset.c; if (c !== undefined) { catTab = c; subTab = '*'; renderCatView(); } };
-$('subTabs').onclick = e => { const s = e.target.dataset.s; if (s !== undefined) { subTab = s; renderCatView(); } };
+$('catTabs').onclick = e => { const c = e.target.dataset.c; if (c !== undefined) { catTab = c; renderCatView(); } };
+function cvToggle(tr) { if (!tr) return; const k = cvKey(tr.dataset.s); cvOpen.has(k) ? cvOpen.delete(k) : cvOpen.add(k); renderCatView(); }
+$('cvTbl').onclick = e => cvToggle(e.target.closest('tr.subrow'));          // a click on a sub-category row folds or unfolds its details
+$('cvTbl').onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr.subrow')) { e.preventDefault(); cvToggle(e.target); } };
 
 /* ---------- Categorize ---------- */
 function renderCats() {
