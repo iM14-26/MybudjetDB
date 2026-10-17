@@ -180,6 +180,7 @@ tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
 .subdetail>td{padding:0!important;background:var(--bg-page)}
 .nested{margin:10px 14px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow-x:auto}
 .nested th{position:static}
+td.edited,tr:hover td.edited{background:#fff2cc!important}
 </style>
 </head>
 <body>
@@ -212,7 +213,7 @@ tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
   <div class="header-actions">
     <span id="sync" style="color:var(--text-muted);font-size:12px"></span>
     <button class="btn alt" id="reload" type="button" title="Reload data"><span class="material-symbols-outlined" style="font-size:16px">sync</span><span class="lbl">Reload</span></button>
-    <div id="status" title="Open verification"><span class="status-indicator-dot"></span><span>Loading…</span></div>
+    <div id="status" title="Rows waiting to be categorized: open the Categorize tab"><span class="status-indicator-dot"></span><span>Loading…</span></div>
     <div class="usermenu">
       <button class="avatar hide" id="userBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Account"><span id="avatarLetter">?</span></button>
       <div class="menu" id="userMenu" hidden>
@@ -252,6 +253,8 @@ tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
         <label class="f">Category<select id="fCat"></select></label>
         <label class="f">Search the table (any column)<input type="search" id="fQ" placeholder="words, amount, date, account…"></label>
       </div>
+      <div class="inline" style="margin-top:14px;gap:10px;align-items:center"><span style="color:var(--text-muted);font-size:12.5px;font-weight:600">When several are selected, show rows matching</span><div class="chips" id="chipMode" style="margin:0"><button class="chip on" data-m="any" type="button">Any of them</button><button class="chip" data-m="all" type="button">All of them at once</button></div></div>
+      <div id="chipHint" style="color:var(--text-muted);font-size:12px;margin-top:4px"></div>
       <div class="group-title">People &amp; extras <button class="link" id="clrP">clear</button></div>
       <div class="chips" id="chipsP"></div>
       <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
@@ -501,12 +504,12 @@ const CREDIT_KEY = 'mb_credit_v1';        // Account Credit table only (no trans
 function saveCredit(s) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(s)); } catch (e) { /* storage full: skip */ } }
 function renderCreditSnapshot() {         // shows the last known balances at once, before any data has arrived
   let s; try { s = JSON.parse(localStorage.getItem(CREDIT_KEY)); } catch (e) { s = null; }
-  if (!s || s.v !== 2 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
+  if (!s || s.v !== 3 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
   const td = v => '<td class="n">' + money(v) + '</td>';
   $('acc').innerHTML = '<tr>' + s.head.map((c, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(c) + '</th>').join('') + '</tr>' +
-    s.rows.map(r => { const tc = r[r.length - 2], ex = r[r.length - 1];
-      return '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -2).map(td).join('') + '<td class="n" style="font-weight:600;color:' + (tc < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(tc) + '</td><td class="n" style="font-weight:600">' + (ex === null ? '' : money(ex)) + '</td></tr>'; }).join('') +
-    '<tr><td><b>Total</b></td>' + s.total.map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '<td></td></tr>';
+    s.rows.map(r => { const ex = r[r.length - 2], tc = r[r.length - 1];
+      return '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -2).map(td).join('') + '<td class="n" style="font-weight:600">' + (ex === null ? '' : money(ex)) + '</td><td class="n" style="font-weight:600;color:' + (tc < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(tc) + '</td></tr>'; }).join('') +
+    '<tr><td><b>Total</b></td>' + s.total.slice(0, -1).map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(s.total[s.total.length - 1]) + '</b></td></tr>';
   $('accStale').textContent = 'Saved balances from ' + new Date(s.t).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ' · updating…';
   $('accStale').classList.remove('hide');
 }
@@ -583,15 +586,19 @@ function filtered() {
     if (p && !(r.date >= p.start && r.date <= p.end)) return false;
     if (q.length) { const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.fee, r.cbx, r.det, r.cat, r.sub, r.ex, r.sms].join(' ').toLowerCase(); if (!q.every(w => s.includes(w))) return false; }
     if (chipP.size || chipD.size) {
-      const hitP = [...chipP].some(n => personHit(r, n));
-      const hitD = chipD.has(r.det);
-      if (!(hitP || hitD)) return false;
+      const pOK = [...chipP].map(n => personHit(r, n)), dOK = [...chipD].map(x => r.det === x);
+      if (chipMode === 'all') { if (!pOK.every(Boolean) || !dOK.every(Boolean)) return false; }          // every selected chip must match
+      else if (!(pOK.some(Boolean) || dOK.some(Boolean))) return false;                                   // any selected chip
     }
     return true;
   });
 }
 const pageSize = () => { const v = $('fRows').value; return v === 'all' ? Infinity : (+v || 10); };   // rows loaded in the Records table
+let chipMode = 'any';
+try { chipMode = localStorage.getItem('mb_chipmode') === 'all' ? 'all' : 'any'; } catch (e) { /* ignore */ }
+function syncChipMode() { document.querySelectorAll('#chipMode .chip').forEach(b => b.classList.toggle('on', b.dataset.m === chipMode)); }
 function renderRecords() {
+  $('chipHint').textContent = chipMode === 'all' && chipD.size > 1 ? 'A row has only one Details value, so two or more Details can never match together.' : '';
   const f = filtered();
   const view = f.slice().reverse();   // newest first
   const cbTot = f.reduce((s, r) => s + ((r.cbIsEntry ? r.amt : 0) + cbp(r)), 0);
@@ -618,7 +625,21 @@ function renderRecords() {
     const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
     const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
     const sign = r.op2 === 'Incomes' ? '+' : (r.op2 === 'Expenses' ? '-' : '');
-    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td class="act"><button class="rowbtn" data-edit="' + r.r + '" type="button">Edit</button><button class="rowbtn del" data-del="' + r.r + '" type="button">Delete</button></td><td>' + r.r + '</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">' + esc(r.date) + '</td><td style="color:var(--text-subtle);font-size:12px">' + (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '') + '</td><td><span class="tag">' + esc(r.op2) + '</span></td><td class="acc" data-acc="' + esc(r.wd) + '">' + esc(r.wd) + '</td><td class="acc" data-acc="' + esc(r.dep) + '">' + esc(r.dep) + '</td><td class="n amt">' + sign + money(r.amt) + '</td><td class="n" style="color:var(--text-muted)">' + (r.fee ? money(r.fee) : '—') + '</td><td class="n" style="color:#0284c7;font-weight:600">' + (r.cbx ? '+' + money(r.cbx) : '—') + '</td><td><b>' + esc(r.det) + '</b></td><td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td><td>' + esc(r.ex) + '</td><td class="sms" title="' + esc(r.sms) + '">' + esc(r.sms) + '</td></tr>';
+    const ed = ks => !!r.ed && ks.some(k => r.ed.includes(k));
+    const td = (ks, cl, style, inner, attrs) => { const e = ed(ks); return '<td' + ((cl || e) ? ' class="' + [cl, e ? 'edited' : ''].filter(Boolean).join(' ') + '"' : '') + (e ? ' title="Cell Edited"' : '') + (style ? ' style="' + style + '"' : '') + (attrs || '') + '>' + inner + '</td>'; };
+    return '<tr class="' + cls + (needsCat(r) ? ' todo' : '') + '"><td class="act"><button class="rowbtn" data-edit="' + r.r + '" type="button">Edit</button><button class="rowbtn del" data-del="' + r.r + '" type="button">Delete</button></td><td>' + r.r + '</td>' +
+      td(['date'], '', "font-family:'JetBrains Mono',monospace;font-size:12px", esc(r.date)) +
+      td(['h', 'm'], '', 'color:var(--text-subtle);font-size:12px', (r.h || r.m ? r.h + ':' + ('0' + r.m).slice(-2) : '')) +
+      td(['op'], '', '', '<span class="tag">' + esc(r.op2) + '</span>') +
+      td(['wd', 'o1'], 'acc', '', esc(r.wd), ' data-acc="' + esc(r.wd) + '"') +
+      td(['dep', 'o2'], 'acc', '', esc(r.dep), ' data-acc="' + esc(r.dep) + '"') +
+      td(['amt'], 'n amt', '', sign + money(r.amt)) +
+      td(['fee'], 'n', 'color:var(--text-muted)', r.fee ? money(r.fee) : '—') +
+      td(['amt2', 'cbp', 'sms2'], 'n', 'color:#0284c7;font-weight:600', r.cbx ? '+' + money(r.cbx) : '—') +
+      td(['det'], '', '', '<b>' + esc(r.det) + '</b>') +
+      '<td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td>' +
+      td(['ex'], '', '', esc(r.ex)) +
+      td(['sms'], 'sms', '', esc(r.sms), ed(['sms']) ? '' : ' title="' + esc(r.sms) + '"') + '</tr>';
   }).join('');
   $('tbl').innerHTML = head + body;
   $('more').hidden = view.length <= shown; $('more').textContent = 'Show ' + Math.min(pageSize(), view.length - shown) + ' more (' + (view.length - shown) + ' left)';
@@ -643,7 +664,7 @@ function calc() {
   t.cb = t.cbE + t.cbX;
   return {A, t, bad};
 }
-const CREDIT_BONUS = {'Ahli Credit': 2000, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
+const CREDIT_BONUS = {'Ahli Credit': 2500, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
 function renderAccounts() {
   if (!dataReady) return;                    // a half-loaded ledger would show (and save) wrong balances; the saved ones stay on screen
   const {A, t, bad} = calc();
@@ -666,18 +687,18 @@ function renderAccounts() {
     const credit = open + v.dep - v.out - v.fa + v.ca;
     const extra = Object.prototype.hasOwnProperty.call(CREDIT_BONUS, n) ? CREDIT_BONUS[n] + credit : null;
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
-    snap.push([n, open].concat(KEYS.map(k => v[k]), [credit, extra]));
+    snap.push([n, open].concat(KEYS.map(k => v[k]), [extra, credit]));
     return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
-      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td><td class="n" style="font-weight:600">' + (extra === null ? '' : money(extra)) + '</td></tr>';
+      '<td class="n" style="font-weight:600">' + (extra === null ? '' : money(extra)) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
   }).join('');
-  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['TOTAL CREDIT', 'n'], ['CREDIT', 'n']];
+  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['CREDIT', 'n'], ['TOTAL CREDIT', 'n']];
   $('acc').innerHTML = '<tr>' + TH.map(c => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr>' +
     (body || '<tr><td colspan="12" class="empty">No accounts found in Responses.</td></tr>') +
-    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td><td></td></tr>';       // the CREDIT column is not summed
+    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(S.credit) + '</b></td></tr>';       // the CREDIT column is not summed
   const sumOpen = S.open, sumCredit = S.credit;
   $('accStale').classList.add('hide');
-  if (rows.length) saveCredit({v: 2, t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
+  if (rows.length) saveCredit({v: 3, t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
@@ -692,8 +713,8 @@ function renderAccounts() {
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
   const n = checks.filter(c => !c.ok).length;
-  $('status').className = n ? 'bad' : 'ok';
-  $('status').innerHTML = '<span class="status-indicator-dot"></span><span>' + (n ? n + ' check' + (n > 1 ? 's' : '') + ' to review' : 'All checks passed') + '</span>';
+  $('status').className = todo.length ? 'bad' : 'ok';
+  $('status').innerHTML = '<span class="status-indicator-dot"></span><span>' + todo.length + ' to Categorize</span>';
   $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
 }
@@ -815,7 +836,7 @@ function showTab(t) {
   renderLazy(t);
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
-$('status').onclick = () => { showTab('records'); $('recPanel').open = true; };
+$('status').onclick = () => showTab('cats');
 $('reload').onclick = () => load(true);
 $('tbl').onclick = e => {
   const b = e.target.closest('button[data-edit],button[data-del]');
@@ -840,6 +861,8 @@ function clearRecordFilters() {          // every selected filter at once: the f
   buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); shown = pageSize(); renderRecords();
 }
 $('clrAll').onclick = clearRecordFilters;
+$('chipMode').onclick = e => { const m = e.target.dataset.m; if (!m) return; chipMode = m; try { localStorage.setItem('mb_chipmode', m); } catch (er) { /* ignore */ } syncChipMode(); shown = pageSize(); renderRecords(); };
+syncChipMode();
 $('clrD').onclick = () => { chipD.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
 $('addAcc').onclick = () => {
   const n = $('newAcc').value.trim(), msg = $('accMsg');
@@ -1197,14 +1220,15 @@ $('aeSave').onclick = () => {
   if (aeEdit) {
     const target = rows.find(x => x.r === aeEdit.row), n = aeEdit.row;
     google.script.run.withSuccessHandler(res => {
+      if (res && res.unchanged) { aeReset(); $('aeMsg').textContent = ''; showTab('records'); setSync('Row ' + n + ': nothing changed, so nothing was saved.'); $('aeSave').disabled = false; return; }
       if (target) {
-        Object.assign(target, {wd: d.withdrawn, dep: d.deposited, o1: d.other1, o2: d.other2, op: res.op, amt: +d.amount, date: d.date,
+        Object.assign(target, {ts: res.ts || target.ts, wd: d.withdrawn, dep: d.deposited, o1: d.other1, o2: d.other2, op: res.op, amt: +d.amount, date: d.date,
           h: +d.h, m: +d.m, ex: d.extras, det: d.details, fee: +d.fees || 0, amt2: +d.cbAmount || 0, cbp: +d.cbAmount || 0, sms: d.sms, sms2: d.cbSms});
         target.op2 = normOp(target);
         rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.h - b.h || a.m - b.m || a.ts.localeCompare(b.ts));
         linkCb(); refreshAccFilter(); renderAll();
       }
-      aeReset(); showTab('records'); setSync('Row ' + n + ' updated. Syncing…'); load(true);
+      aeReset(); $('aeMsg').textContent = ''; showTab('records'); setSync('Row ' + n + ' updated. Syncing…'); load(true);
       $('aeSave').disabled = false;
     }).withFailureHandler(e => {
       $('aeSave').disabled = false;
