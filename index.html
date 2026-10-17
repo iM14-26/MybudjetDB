@@ -368,7 +368,7 @@ tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
         <label class="f">Details<select id="aeDet"></select></label>
         <label class="f">Extras<input type="text" id="aeExtras" placeholder="Item, merchant, person..."></label>
         <label class="f">Cash back<select id="aeCb"></select></label>
-        <label class="f hide" id="aeCbAmtBox">Cash back amount<input type="text" id="aeCbAmt" inputmode="decimal" placeholder="0.00"></label>
+        <label class="f hide" id="aeCbAmtBox">Cash back amount (0 is allowed)<input type="text" id="aeCbAmt" inputmode="decimal" placeholder="0.00"></label>
       </div>
       <label class="f hide" id="aeCbSmsBox" style="margin-top:10px">Cash back SMS (optional)
         <textarea id="aeCbSms" rows="2" placeholder="Cash back notification SMS..."></textarea>
@@ -501,11 +501,12 @@ const CREDIT_KEY = 'mb_credit_v1';        // Account Credit table only (no trans
 function saveCredit(s) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(s)); } catch (e) { /* storage full: skip */ } }
 function renderCreditSnapshot() {         // shows the last known balances at once, before any data has arrived
   let s; try { s = JSON.parse(localStorage.getItem(CREDIT_KEY)); } catch (e) { s = null; }
-  if (!s || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
-  const td = v => '<td class="n">' + money(v) + '</td>', last = r => r[r.length - 1];
+  if (!s || s.v !== 2 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
+  const td = v => '<td class="n">' + money(v) + '</td>';
   $('acc').innerHTML = '<tr>' + s.head.map((c, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(c) + '</th>').join('') + '</tr>' +
-    s.rows.map(r => '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -1).map(td).join('') + '<td class="n" style="font-weight:600;color:' + (last(r) < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(last(r)) + '</td></tr>').join('') +
-    '<tr><td><b>Total</b></td>' + s.total.map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '</tr>';
+    s.rows.map(r => { const tc = r[r.length - 2], ex = r[r.length - 1];
+      return '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -2).map(td).join('') + '<td class="n" style="font-weight:600;color:' + (tc < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(tc) + '</td><td class="n" style="font-weight:600">' + (ex === null ? '' : money(ex)) + '</td></tr>'; }).join('') +
+    '<tr><td><b>Total</b></td>' + s.total.map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '<td></td></tr>';
   $('accStale').textContent = 'Saved balances from ' + new Date(s.t).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ' · updating…';
   $('accStale').classList.remove('hide');
 }
@@ -642,6 +643,7 @@ function calc() {
   t.cb = t.cbE + t.cbX;
   return {A, t, bad};
 }
+const CREDIT_BONUS = {'Ahli Credit': 2000, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
 function renderAccounts() {
   if (!dataReady) return;                    // a half-loaded ledger would show (and save) wrong balances; the saved ones stay on screen
   const {A, t, bad} = calc();
@@ -662,19 +664,20 @@ function renderAccounts() {
       ca: a.cbE + a.cbX              // Cash back (all)
     };
     const credit = open + v.dep - v.out - v.fa + v.ca;
+    const extra = Object.prototype.hasOwnProperty.call(CREDIT_BONUS, n) ? CREDIT_BONUS[n] + credit : null;
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
-    snap.push([n, open].concat(KEYS.map(k => v[k]), [credit]));
+    snap.push([n, open].concat(KEYS.map(k => v[k]), [credit, extra]));
     return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
-      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
+      '<td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td><td class="n" style="font-weight:600">' + (extra === null ? '' : money(extra)) + '</td></tr>';
   }).join('');
-  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['Credit', 'n']];
+  const TH = [['Account', ''], ['Opening', 'n'], ['Deposited (without its cash back)', 'n'], ['Withdrawn (without its fees)', 'n'], ['Fees', 'n'], ['Fees (Withdrawn records)', 'n'], ['Fees (All)', 'n'], ['Cash back (' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ')', 'n'], ['Cash back (Deposited records)', 'n'], ['Cash back (all)', 'n'], ['TOTAL CREDIT', 'n'], ['CREDIT', 'n']];
   $('acc').innerHTML = '<tr>' + TH.map(c => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr>' +
-    (body || '<tr><td colspan="11" class="empty">No accounts found in Responses.</td></tr>') +
-    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td></tr>';
+    (body || '<tr><td colspan="12" class="empty">No accounts found in Responses.</td></tr>') +
+    '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td class="n"><b>' + money(S.credit) + '</b></td><td></td></tr>';       // the CREDIT column is not summed
   const sumOpen = S.open, sumCredit = S.credit;
   $('accStale').classList.add('hide');
-  if (rows.length) saveCredit({t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
+  if (rows.length) saveCredit({v: 2, t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
   const diff = Math.round((sumCredit - expected) * 100) / 100;
@@ -1163,7 +1166,11 @@ $('aeSave').onclick = () => {
     const v = $(id).value;
     if (!/^\d+(\.\d+)?$/.test(v) || +v <= 0) bad(id, 'Enter amounts as a number above 0, like 125.50.');
   };
-  amt('aeAmt'); if (s.cb) amt('aeCbAmt');
+  amt('aeAmt');
+  if (s.cb) {                                  // a rate (0.7%, 5%, 11%) can be chosen while the cash back amount stays 0
+    $('aeCbAmt').value = aeNorm($('aeCbAmt').value) || '0';
+    if (!/^\d+(\.\d+)?$/.test($('aeCbAmt').value)) bad('aeCbAmt', 'Cash back amount must be a number (0 is allowed).');
+  }
   if (!$('aeDate').value) bad('aeDate', 'Choose a date.');
   const hh = $('aeH').value.trim(), mm = $('aeM').value.trim();
   if (!/^\d{1,2}$/.test(hh) || +hh > 23) bad('aeH', 'Hour must be 0-23.');
