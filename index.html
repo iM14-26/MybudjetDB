@@ -696,7 +696,7 @@ const EYE = {
   on: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   off: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>'
 };
-let hideNums = false; try { hideNums = localStorage.getItem('mb_hide_nums') === '1'; } catch (e) { /* ignore */ }
+let hideNums = true;                        // numbers are hidden every time the app opens; the eye shows them for this visit only
 let accCardData = {list: [], total: 0};
 function renderAccCards(list, total) {       // a tall "All accounts" card, then the accounts; the two credit cards are twice as wide
   accCardData = {list: list, total: total};
@@ -712,7 +712,7 @@ function renderAccCards(list, total) {       // a tall "All accounts" card, then
     list.slice().sort((a, b) => ord(a) - ord(b) || a.n.localeCompare(b.n)).map(one).join('') + '</div>';
   $('eyeBtn').innerHTML = hideNums ? EYE.off : EYE.on; $('eyeBtn').title = hideNums ? 'Show numbers' : 'Hide numbers';
 }
-$('eyeBtn').onclick = () => { hideNums = !hideNums; try { localStorage.setItem('mb_hide_nums', hideNums ? '1' : '0'); } catch (e) { /* ignore */ } renderAccCards(accCardData.list, accCardData.total); };
+$('eyeBtn').onclick = () => { hideNums = !hideNums; renderAccCards(accCardData.list, accCardData.total); };
 $('eyeBtn').innerHTML = hideNums ? EYE.off : EYE.on;
 const CREDIT_BONUS = {'Ahli Credit': 2500, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
 function renderAccounts() {
