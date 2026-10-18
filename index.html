@@ -34,10 +34,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;fl
 h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.02em}
 .brand-sub{font-size:11px;color:var(--text-muted);font-weight:500}
 .header-actions{display:flex;align-items:center;gap:12px}
-#status{padding:6px 14px;border-radius:9999px;font-weight:600;font-size:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .2s cubic-bezier(.16,1,.3,1);box-shadow:var(--shadow-xs)}
-#status:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
-#status.ok{background:var(--pos-soft);border-color:var(--pos-border);color:#065f46}
-#status.bad{background:var(--warn-soft);border-color:var(--warn-border);color:#92400e}
+#status,#creditStatus{padding:6px 14px;border-radius:9999px;font-weight:600;font-size:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .2s cubic-bezier(.16,1,.3,1);box-shadow:var(--shadow-xs)}
+#status:hover,#creditStatus:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+#status.ok,#creditStatus.ok{background:var(--pos-soft);border-color:var(--pos-border);color:#065f46}
+#status.bad,#creditStatus.bad{background:var(--warn-soft);border-color:var(--warn-border);color:#92400e}
 .status-indicator-dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px rgba(16,185,129,.2)}
 nav#tabs{display:flex;gap:6px;padding:0 32px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
 nav#tabs::-webkit-scrollbar{display:none}
@@ -157,7 +157,7 @@ td.act{white-space:nowrap}
   #reload .lbl{display:none}
   #reload{padding:8px 10px}
   .header-actions{gap:8px}
-  #status{padding:6px 10px;max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #status,#creditStatus{padding:6px 10px;max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   nav#tabs{padding:0 6px}
   nav#tabs button{padding:12px 11px}
   main{padding:14px 12px 80px}
@@ -181,6 +181,10 @@ tr.cvtotal td{background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1}
 .nested{margin:10px 14px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow-x:auto}
 .nested th{position:static}
 td.edited,tr:hover td.edited{background:#fff2cc!important}
+.pi{width:16px;height:16px;flex:none}
+.pcount{font-weight:700;font-size:13px;min-width:1.1ch;text-align:center;line-height:16px}
+.acsub{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border);font-size:11.5px}
+.acsub b{font-size:13px;color:var(--primary-text)}
 </style>
 </head>
 <body>
@@ -213,6 +217,7 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
   <div class="header-actions">
     <span id="sync" style="color:var(--text-muted);font-size:12px"></span>
     <button class="btn alt" id="reload" type="button" title="Reload data"><span class="material-symbols-outlined" style="font-size:16px">sync</span><span class="lbl">Reload</span></button>
+    <div id="creditStatus" title="Account credit vs the operations" hidden></div>
     <div id="status" title="Rows waiting to be categorized: open the Categorize tab"><span class="status-indicator-dot"></span><span>Loading…</span></div>
     <div class="usermenu">
       <button class="avatar hide" id="userBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Account"><span id="avatarLetter">?</span></button>
@@ -270,16 +275,18 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
   </section>
 
   <section id="accounts" hidden>
+    <div id="accStale" class="hide" style="color:var(--text-muted);font-size:12.5px;margin:0 0 8px"></div>
+    <div class="group-title" style="margin:0 0 8px">Total credit</div>
+    <div class="summary" id="accCards"></div>
     <details class="panel" id="setBox">
       <summary class="fsum"><b>Settings</b></summary>
-      <nav id="setTabs"><button type="button" data-t="filter" class="on">Filter</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button></nav>
+      <nav id="setTabs"><button type="button" data-t="filter" class="on">Filter</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button><button type="button" data-t="credit">Credit details</button></nav>
       <div id="setFilter">
       <div class="group-title" style="margin-top:18px">Columns <button class="link" id="accColsAll" type="button">show all</button><button class="link" id="accColsNone" type="button">hide all</button></div>
       <div class="chips" id="accCols"></div>
       <div class="group-title" style="margin-top:20px">Add account</div>
       <div class="inline" style="margin-top:8px">
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
-        <label class="f">Opening balance (optional)<input type="number" step="0.01" id="newAccOpen"></label>
         <button class="btn alt" id="addAcc">Add account</button>
         <span id="accMsg" style="color:var(--mute)"></span>
       </div>
@@ -315,9 +322,8 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
         <p style="color:var(--text-muted);font-size:12.5px;margin:10px 0 0">Only the first row can be copied.</p>
       </div>
     </div>
+      <div id="setCredit" class="hide"><div class="tablewrap" style="margin-top:12px"><table id="acc"></table></div></div>
     </details>
-    <div id="accStale" class="hide" style="color:var(--text-muted);font-size:12.5px;margin:0 0 8px"></div>
-    <div class="tablewrap"><table id="acc"></table></div>
   </section>
 
   <section id="catview" hidden>
@@ -504,12 +510,13 @@ const CREDIT_KEY = 'mb_credit_v1';        // Account Credit table only (no trans
 function saveCredit(s) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(s)); } catch (e) { /* storage full: skip */ } }
 function renderCreditSnapshot() {         // shows the last known balances at once, before any data has arrived
   let s; try { s = JSON.parse(localStorage.getItem(CREDIT_KEY)); } catch (e) { s = null; }
-  if (!s || s.v !== 3 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; return; }
+  if (!s || s.v !== 3 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; $('accCards').innerHTML = '<span><span>Loading account credit…</span></span>'; return; }
   const td = v => '<td class="n">' + money(v) + '</td>';
   $('acc').innerHTML = '<tr>' + s.head.map((c, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(c) + '</th>').join('') + '</tr>' +
     s.rows.map(r => { const ex = r[r.length - 2], tc = r[r.length - 1];
       return '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -2).map(td).join('') + '<td class="n" style="font-weight:600">' + (ex === null ? '' : money(ex)) + '</td><td class="n" style="font-weight:600;color:' + (tc < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(tc) + '</td></tr>'; }).join('') +
     '<tr><td><b>Total</b></td>' + s.total.slice(0, -1).map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(s.total[s.total.length - 1]) + '</b></td></tr>';
+  $('accCards').innerHTML = accCardsHtml(s.rows.map(r => ({n: r[0], credit: r[r.length - 1], extra: r[r.length - 2]})), s.total[s.total.length - 1]);
   $('accStale').textContent = 'Saved balances from ' + new Date(s.t).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ' · updating…';
   $('accStale').classList.remove('hide');
 }
@@ -535,7 +542,7 @@ function showErr(e) { $('loading').hidden = true; $('accStale').textContent = $(
 function init(d) {
   if (!d || !Array.isArray(d.rows)) { showErr(new Error('The backend sent an empty reply. Press Reload.')); return; }
   cbInfo = d.cbCol || null;
-  cfg = d.cfg || {}; cfg.opening = cfg.opening || {}; cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
+  cfg = d.cfg || {}; cfg.opening = d.openings || cfg.opening || {};   // opening credit: sheet Accounts, R2:S13 cfg.subs = cfg.subs || {}; cfg.accounts = cfg.accounts || [];
   rows = d.rows.map(r => Object.assign(r, {op2: normOp(r)}));
   localAdds = localAdds.filter(a => Date.now() - a.addedAt < 900000 && !rows.some(x => x.r === a.r && x.ts === a.ts));
   localAdds.forEach(a => rows.push(a));       // a read that started before the save does not make the new entry disappear
@@ -664,6 +671,17 @@ function calc() {
   t.cb = t.cbE + t.cbX;
   return {A, t, bad};
 }
+const ICON = {                              // header indicators
+  check: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
+  equal: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 10h7M8.5 14h7"/></svg>',
+  warn: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 15.5H3z"/><path d="M12 10.5v4"/><path d="M12 17.5v.01"/></svg>'
+};
+function accCardsHtml(list, total) {         // one card per account: TOTAL CREDIT, plus CREDIT for the two credit cards
+  const tone = v => v < 0 ? 'var(--neg)' : 'var(--pos)';
+  return '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>All accounts</span><b style="color:var(--primary-text)">' + money(total) + ' SAR</b></span>' +
+    list.map(a => '<span style="border-left:3px solid ' + tone(a.credit) + '"><span>' + esc(a.n) + '</span><b style="color:' + tone(a.credit) + '">' + money(a.credit) + ' SAR</b>' +
+      (a.extra === null || a.extra === undefined ? '' : '<span class="acsub"><span>CREDIT</span><b>' + money(a.extra) + ' SAR</b></span>') + '</span>').join('');
+}
 const CREDIT_BONUS = {'Ahli Credit': 2500, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
 function renderAccounts() {
   if (!dataReady) return;                    // a half-loaded ledger would show (and save) wrong balances; the saved ones stay on screen
@@ -671,7 +689,7 @@ function renderAccounts() {
   const names = Object.keys(A).sort();
   const S = {open: 0, dep: 0, out: 0, fd: 0, fc: 0, fa: 0, cx: 0, ce: 0, ca: 0, credit: 0};
   const KEYS = ['dep', 'out', 'fd', 'fc', 'fa', 'cx', 'ce', 'ca'];
-  const snap = [];
+  const snap = [], cards = [];
   const body = names.map(n => {
     const a = A[n], open = +cfg.opening[n] || 0;
     const v = {
@@ -688,7 +706,8 @@ function renderAccounts() {
     const extra = Object.prototype.hasOwnProperty.call(CREDIT_BONUS, n) ? CREDIT_BONUS[n] + credit : null;
     S.open += open; S.credit += credit; KEYS.forEach(k => S[k] += v[k]);
     snap.push([n, open].concat(KEYS.map(k => v[k]), [extra, credit]));
-    return '<tr><td>' + esc(n) + '</td><td class="n"><input type="number" step="0.01" data-acc="' + esc(n) + '" value="' + (cfg.opening[n] || '') + '" placeholder="0.00"></td>' +
+    cards.push({n: n, credit: credit, extra: extra});
+    return '<tr><td>' + esc(n) + '</td><td class="n">' + money(open) + '</td>' +
       KEYS.map(k => '<td class="n">' + money(v[k]) + '</td>').join('') +
       '<td class="n" style="font-weight:600">' + (extra === null ? '' : money(extra)) + '</td><td class="n" style="font-weight:600;color:' + (credit < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(credit) + '</td></tr>';
   }).join('');
@@ -698,6 +717,7 @@ function renderAccounts() {
     '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(S.credit) + '</b></td></tr>';       // the CREDIT column is not summed
   const sumOpen = S.open, sumCredit = S.credit;
   $('accStale').classList.add('hide');
+  $('accCards').innerHTML = accCardsHtml(cards, S.credit);
   if (rows.length) saveCredit({v: 3, t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
@@ -705,16 +725,17 @@ function renderAccounts() {
   const todo = rows.filter(needsCat);
   const oldBackend = rows.length > 0 && rows.every(r => r.cbp === undefined);
   const checks = [
-    {ok: diff === 0, t: 'Account credit matches the operations', s: 'Accounts total ' + money(sumCredit) + ' · opening + incomes − expenses − fees + extra-column cash back (cash back entries are already inside incomes) = ' + money(expected) + (diff ? ' · difference ' + money(diff) : '')},
     {ok: bad.length === 0, t: 'Every row has the accounts and date its operation needs', s: bad.length ? bad.length + ' row(s) to fix in Responses: ' + bad.slice(0, 12).map(r => r.r).join(', ') + (bad.length > 12 ? '…' : '') : rows.length + ' rows checked'},
-    {ok: todo.length === 0, t: 'Every manual row has a category', s: todo.length ? todo.length + ' row(s) waiting in the Categorize tab' : 'Nothing waiting'}
-  ,
     {ok: !oldBackend, t: 'Cash back total ' + money(t.cb), s: oldBackend ? 'The backend is still the old version (column P is not being read). Paste the new Code.gs and deploy a new version.' : 'Separate Cash Back entries ' + money(t.cbE) + ' + column ' + (cbInfo ? cbInfo.letter + (cbInfo.header ? ' ("' + esc(cbInfo.header) + '")' : '') : 'P') + ' = SUM(' + (cbInfo ? cbInfo.letter : 'P') + '2:' + (cbInfo ? cbInfo.letter : 'P') + ') ' + money(t.cbX)}
   ];
   $('checks').innerHTML = checks.map(c => '<div class="check"><span class="dot ' + (c.ok ? 'ok' : 'bad') + '"></span><div>' + esc(c.t) + '<small>' + esc(c.s) + '</small></div></div>').join('');
   const n = checks.filter(c => !c.ok).length;
-  $('status').className = todo.length ? 'bad' : 'ok';
-  $('status').innerHTML = '<span class="status-indicator-dot"></span><span>' + todo.length + ' to Categorize</span>';
+  $('status').className = todo.length ? 'bad' : 'ok';                    // a number while rows wait to be categorized, a tick when none
+  $('status').innerHTML = todo.length ? '<span class="pcount">' + todo.length + '</span>' : ICON.check;
+  $('status').title = todo.length ? todo.length + ' row(s) to categorize. Open the Categorize tab' : 'Nothing to categorize';
+  $('creditStatus').hidden = false; $('creditStatus').className = diff === 0 ? 'ok' : 'bad';   // = when the Account credit matches the operations
+  $('creditStatus').innerHTML = diff === 0 ? ICON.equal : ICON.warn;
+  $('creditStatus').title = diff === 0 ? 'Account credit matches the operations' : 'Account credit differs from the operations by ' + money(diff);
   $('verifDot').className = 'dot ' + (n ? 'bad' : 'ok');
   $('verifBadge').textContent = n ? n + ' of ' + checks.length + ' to review' : 'All ' + checks.length + ' passed';
 }
@@ -837,6 +858,7 @@ function showTab(t) {
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) showTab(b.dataset.t); };
 $('status').onclick = () => showTab('cats');
+$('creditStatus').onclick = () => showTab('accounts');
 $('reload').onclick = () => load(true);
 $('tbl').onclick = e => {
   const b = e.target.closest('button[data-edit],button[data-del]');
@@ -869,19 +891,11 @@ $('addAcc').onclick = () => {
   if (!n) { msg.style.color = 'var(--neg)'; msg.textContent = 'Type the account name first.'; return; }
   if (accountNames().concat(AE_ACC).some(x => x.toLowerCase() === n.toLowerCase())) { msg.style.color = 'var(--neg)'; msg.textContent = 'That account already exists.'; return; }
   cfg.accounts.push(n);
-  const o = parseFloat($('newAccOpen').value); if (!isNaN(o)) cfg.opening[n] = o;
-  $('newAcc').value = ''; $('newAccOpen').value = '';
+  $('newAcc').value = '';
   msg.style.color = 'var(--mute)'; msg.textContent = 'Saving…';
   google.script.run.withSuccessHandler(() => { msg.style.color = 'var(--pos)'; msg.textContent = 'Account "' + n + '" added.'; })
     .withFailureHandler(e => { msg.style.color = 'var(--neg)'; msg.textContent = 'Save failed: ' + (e && e.message || e); }).dashSaveCfg(JSON.stringify(cfg));
   refreshAccFilter(); aeRefillAccounts(); renderAccounts();
-};
-let t0;
-$('acc').onchange = e => {
-  const n = e.target.dataset.acc; if (!n) return;
-  cfg.opening[n] = parseFloat(e.target.value) || 0;
-  renderAccounts();
-  clearTimeout(t0); t0 = setTimeout(() => google.script.run.dashSaveCfg(JSON.stringify(cfg)), 600);
 };
 $('ctbl').onchange = e => {
   const rn = +e.target.dataset.r; if (!rn || !e.target.dataset.k) return;
@@ -1494,7 +1508,7 @@ $('secHide').onclick = () => secHide('');
 let setTab = 'filter';
 function showSetTab(t) {
   setTab = t;
-  [['filter', 'setFilter'], ['accts', 'setAccts'], ['cards', 'setCards']].forEach(([k, id]) => $(id).classList.toggle('hide', k !== t));
+  [['filter', 'setFilter'], ['accts', 'setAccts'], ['cards', 'setCards'], ['credit', 'setCredit']].forEach(([k, id]) => $(id).classList.toggle('hide', k !== t));
   document.querySelectorAll('#setTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t !== 'cards') secHide('');                    // the private data never stays on screen when you leave its tab
   if (t === 'accts') shLoad(); else if (t === 'cards') setTimeout(() => $('secPin').focus(), 50);
