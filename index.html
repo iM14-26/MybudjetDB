@@ -185,6 +185,20 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
 .pcount{font-weight:700;font-size:13px;min-width:1.1ch;text-align:center;line-height:16px}
 .acsub{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border);font-size:11.5px}
 .acsub b{font-size:13px;color:var(--primary-text)}
+.acwrap{display:grid;grid-template-columns:210px 1fr;gap:12px;margin:0 0 16px;align-items:stretch}
+.acgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.acard{background:#fff;border:1px solid var(--border);border-left:3px solid var(--pos);border-radius:var(--radius-md);padding:12px 14px;box-shadow:var(--shadow-xs);display:grid;gap:12px;align-content:center;min-width:0}
+.acard.ac2{grid-column:span 2;grid-template-columns:1fr 1fr}
+.actotal{background:var(--primary-soft);border-left-color:var(--primary)}
+.actotal .acval{color:var(--primary-text)}
+.accol{min-width:0}
+.accol.sep{border-left:1px dashed var(--border);padding-left:12px}
+.aclab{color:var(--text-muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acval{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1180px){.acgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){.acwrap{grid-template-columns:1fr}.acgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.iconbtn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:5px 8px;cursor:pointer;color:var(--text-muted);display:inline-flex;align-items:center}
+.iconbtn:hover{color:var(--primary);border-color:#cbd5e1}
 </style>
 </head>
 <body>
@@ -276,14 +290,15 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
 
   <section id="accounts" hidden>
     <div id="accStale" class="hide" style="color:var(--text-muted);font-size:12.5px;margin:0 0 8px"></div>
-    <div class="group-title" style="margin:0 0 8px">Total credit</div>
-    <div class="summary" id="accCards"></div>
+    <div class="group-title" style="margin:0 0 8px;justify-content:space-between"><span>Total credit</span><button class="iconbtn" id="eyeBtn" type="button" title="Hide numbers"></button></div>
+    <div class="acwrap" id="accCards"></div>
     <details class="panel" id="setBox">
       <summary class="fsum"><b>Settings</b></summary>
-      <nav id="setTabs"><button type="button" data-t="filter" class="on">Filter</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button><button type="button" data-t="credit">Credit details</button></nav>
+      <nav id="setTabs"><button type="button" data-t="filter" class="on">Credit details</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button></nav>
       <div id="setFilter">
       <div class="group-title" style="margin-top:18px">Columns <button class="link" id="accColsAll" type="button">show all</button><button class="link" id="accColsNone" type="button">hide all</button></div>
       <div class="chips" id="accCols"></div>
+      <div class="tablewrap" style="margin-top:14px"><table id="acc"></table></div>
       <div class="group-title" style="margin-top:20px">Add account</div>
       <div class="inline" style="margin-top:8px">
         <label class="f">New account<input type="text" id="newAcc" placeholder="e.g. Alinma"></label>
@@ -322,7 +337,6 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
         <p style="color:var(--text-muted);font-size:12.5px;margin:10px 0 0">Only the first row can be copied.</p>
       </div>
     </div>
-      <div id="setCredit" class="hide"><div class="tablewrap" style="margin-top:12px"><table id="acc"></table></div></div>
     </details>
   </section>
 
@@ -510,13 +524,13 @@ const CREDIT_KEY = 'mb_credit_v1';        // Account Credit table only (no trans
 function saveCredit(s) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(s)); } catch (e) { /* storage full: skip */ } }
 function renderCreditSnapshot() {         // shows the last known balances at once, before any data has arrived
   let s; try { s = JSON.parse(localStorage.getItem(CREDIT_KEY)); } catch (e) { s = null; }
-  if (!s || s.v !== 3 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; $('accCards').innerHTML = '<span><span>Loading account credit…</span></span>'; return; }
+  if (!s || s.v !== 3 || !Array.isArray(s.rows) || !s.rows.length) { $('acc').innerHTML = '<tr><td class="empty">Loading account credit…</td></tr>'; $('accCards').innerHTML = '<div class="acard"><div class="aclab">Loading account credit…</div></div>'; return; }
   const td = v => '<td class="n">' + money(v) + '</td>';
   $('acc').innerHTML = '<tr>' + s.head.map((c, i) => '<th' + (i ? ' class="n"' : '') + '>' + esc(c) + '</th>').join('') + '</tr>' +
     s.rows.map(r => { const ex = r[r.length - 2], tc = r[r.length - 1];
       return '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1, -2).map(td).join('') + '<td class="n" style="font-weight:600">' + (ex === null ? '' : money(ex)) + '</td><td class="n" style="font-weight:600;color:' + (tc < 0 ? 'var(--neg)' : 'var(--ink)') + '">' + money(tc) + '</td></tr>'; }).join('') +
     '<tr><td><b>Total</b></td>' + s.total.slice(0, -1).map(v => '<td class="n"><b>' + money(v) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(s.total[s.total.length - 1]) + '</b></td></tr>';
-  $('accCards').innerHTML = accCardsHtml(s.rows.map(r => ({n: r[0], credit: r[r.length - 1], extra: r[r.length - 2]})), s.total[s.total.length - 1]);
+  renderAccCards(s.rows.map(r => ({n: r[0], credit: r[r.length - 1], extra: r[r.length - 2]})), s.total[s.total.length - 1]);
   $('accStale').textContent = 'Saved balances from ' + new Date(s.t).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ' · updating…';
   $('accStale').classList.remove('hide');
 }
@@ -676,12 +690,30 @@ const ICON = {                              // header indicators
   equal: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 10h7M8.5 14h7"/></svg>',
   warn: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 15.5H3z"/><path d="M12 10.5v4"/><path d="M12 17.5v.01"/></svg>'
 };
-function accCardsHtml(list, total) {         // one card per account: TOTAL CREDIT, plus CREDIT for the two credit cards
-  const tone = v => v < 0 ? 'var(--neg)' : 'var(--pos)';
-  return '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>All accounts</span><b style="color:var(--primary-text)">' + money(total) + ' SAR</b></span>' +
-    list.map(a => '<span style="border-left:3px solid ' + tone(a.credit) + '"><span>' + esc(a.n) + '</span><b style="color:' + tone(a.credit) + '">' + money(a.credit) + ' SAR</b>' +
-      (a.extra === null || a.extra === undefined ? '' : '<span class="acsub"><span>CREDIT</span><b>' + money(a.extra) + ' SAR</b></span>') + '</span>').join('');
+const CARD_ORDER = ['Ahli', 'Ahli Credit', 'Ahli Credit2', 'Cash', 'SAIB', 'SAIB Credit', 'Rajhi', 'Riyad', 'Awwal Sabb', 'STCPay'];   // the order of your design; others follow
+const CARD_LABEL = {'Awwal Sabb': 'SABB'};
+const EYE = {
+  on: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  off: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>'
+};
+let hideNums = false; try { hideNums = localStorage.getItem('mb_hide_nums') === '1'; } catch (e) { /* ignore */ }
+let accCardData = {list: [], total: 0};
+function renderAccCards(list, total) {       // a tall "All accounts" card, then the accounts; the two credit cards are twice as wide
+  accCardData = {list: list, total: total};
+  const ord = a => { const i = CARD_ORDER.indexOf(a.n); return i < 0 ? CARD_ORDER.length : i; };
+  const tone = v => hideNums ? 'var(--text-muted)' : (v < 0 ? 'var(--neg)' : 'var(--pos)');
+  const val = v => hideNums ? '••••••' : money(v) + ' SAR';
+  const one = a => {
+    const t = tone(a.credit), has = a.extra !== null && a.extra !== undefined;
+    return '<div class="acard' + (has ? ' ac2' : '') + '" style="border-left-color:' + t + '" title="' + esc(a.n) + '"><div class="accol"><div class="aclab">' + esc(CARD_LABEL[a.n] || a.n) + '</div><div class="acval" style="color:' + t + '">' + val(a.credit) + '</div></div>' +
+      (has ? '<div class="accol sep"><div class="aclab">Credit</div><div class="acval" style="color:' + tone(a.extra) + '">' + val(a.extra) + '</div></div>' : '') + '</div>';
+  };
+  $('accCards').innerHTML = '<div class="acard actotal"><div class="aclab">All accounts</div><div class="acval">' + val(total) + '</div></div><div class="acgrid">' +
+    list.slice().sort((a, b) => ord(a) - ord(b) || a.n.localeCompare(b.n)).map(one).join('') + '</div>';
+  $('eyeBtn').innerHTML = hideNums ? EYE.off : EYE.on; $('eyeBtn').title = hideNums ? 'Show numbers' : 'Hide numbers';
 }
+$('eyeBtn').onclick = () => { hideNums = !hideNums; try { localStorage.setItem('mb_hide_nums', hideNums ? '1' : '0'); } catch (e) { /* ignore */ } renderAccCards(accCardData.list, accCardData.total); };
+$('eyeBtn').innerHTML = hideNums ? EYE.off : EYE.on;
 const CREDIT_BONUS = {'Ahli Credit': 2500, 'Ahli Credit2': 6000};   // CREDIT = this amount + TOTAL CREDIT (only these two accounts)
 function renderAccounts() {
   if (!dataReady) return;                    // a half-loaded ledger would show (and save) wrong balances; the saved ones stay on screen
@@ -717,7 +749,7 @@ function renderAccounts() {
     '<tr><td><b>Total</b></td><td class="n"><b>' + money(S.open) + '</b></td>' + KEYS.map(k => '<td class="n"><b>' + money(S[k]) + '</b></td>').join('') + '<td></td><td class="n"><b>' + money(S.credit) + '</b></td></tr>';       // the CREDIT column is not summed
   const sumOpen = S.open, sumCredit = S.credit;
   $('accStale').classList.add('hide');
-  $('accCards').innerHTML = accCardsHtml(cards, S.credit);
+  renderAccCards(cards, S.credit);
   if (rows.length) saveCredit({v: 3, t: Date.now(), head: TH.map(c => c[0]), rows: snap, total: [S.open].concat(KEYS.map(k => S[k]), [S.credit])});   // kept for the next start
 
   const expected = sumOpen + t.inc - t.exp - t.fee + t.cbX;
@@ -1508,7 +1540,7 @@ $('secHide').onclick = () => secHide('');
 let setTab = 'filter';
 function showSetTab(t) {
   setTab = t;
-  [['filter', 'setFilter'], ['accts', 'setAccts'], ['cards', 'setCards'], ['credit', 'setCredit']].forEach(([k, id]) => $(id).classList.toggle('hide', k !== t));
+  [['filter', 'setFilter'], ['accts', 'setAccts'], ['cards', 'setCards']].forEach(([k, id]) => $(id).classList.toggle('hide', k !== t));
   document.querySelectorAll('#setTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t !== 'cards') secHide('');                    // the private data never stays on screen when you leave its tab
   if (t === 'accts') shLoad(); else if (t === 'cards') setTimeout(() => $('secPin').focus(), 50);
