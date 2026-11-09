@@ -351,16 +351,19 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
     <div class="panel">
       <div class="inline">
         <label class="f">Category<select id="bCat"></select></label>
-        <label class="f">Sub-category<input type="text" id="bSub" list="subList"></label>
+        <label class="f">Sub-category<select id="bSub"></select><input type="text" id="bSubNew" class="hide" placeholder="New sub-category" style="margin-top:6px"></label>
         <button class="btn alt" id="bApply">Apply to checked rows</button>
         <label style="display:flex;gap:6px;align-items:center;margin-left:auto"><input type="checkbox" id="showAll"> Show already categorized</label>
       </div>
       <div class="inline" style="margin-top:12px">
         <label class="f">New category<input type="text" id="newCat"></label>
         <button class="btn alt" id="addCat">Add category</button>
+        <label class="f" style="margin-left:18px">Category<select id="newSubCat"></select></label>
+        <label class="f">New sub-category<input type="text" id="newSub"></label>
+        <button class="btn alt" id="addSub">Add sub-category</button>
+        <span id="subMsg" style="color:var(--text-muted)"></span>
       </div>
     </div>
-    <datalist id="subList"></datalist>
     <div class="tablewrap"><table id="ctbl"></table></div>
     <p><button class="btn" id="saveCats" disabled>Save to Responses sheet</button> <span id="saveMsg" style="color:var(--mute)"></span></p>
   </section>
@@ -862,16 +865,30 @@ $('cvTbl').onclick = e => cvToggle(e.target.closest('tr.subrow'));          // a
 $('cvTbl').onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr.subrow')) { e.preventDefault(); cvToggle(e.target); } };
 
 /* ---------- Categorize ---------- */
+const NEWSUB = '__new__';
+function subsFor(cat, skipRow) {              // sub-categories of one category: saved ones + those already used on rows or waiting to be saved
+  const s = new Set((cfg.subs && cfg.subs[cat]) || []);
+  rows.forEach(r => { if (r.cat === cat && r.sub) s.add(r.sub); });
+  Object.keys(pend).forEach(k => { if (+k !== skipRow && pend[k].cat === cat && pend[k].sub) s.add(pend[k].sub); });
+  return [...s].sort((a, b) => a.localeCompare(b));
+}
+const subOptions = (cat, sel, skipRow) => { const l = subsFor(cat, skipRow); if (sel && !l.includes(sel)) l.push(sel);
+  return '<option value="">—</option>' + l.map(s => '<option' + (s === sel ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '<option value="' + NEWSUB + '">＋ New sub-category…</option>'; };
+function subCell(rn, cat, sub) {               // the Sub-category drop list follows the chosen Category
+  if (!cat) return '<select data-r="' + rn + '" data-k="sub" disabled><option value="">Choose a category first</option></select>';
+  return '<select data-r="' + rn + '" data-k="sub">' + subOptions(cat, sub, rn) + '</select>';
+}
+function fillBulkSub() { $('bSub').innerHTML = subOptions($('bCat').value, ''); $('bSubNew').classList.add('hide'); $('bSubNew').value = ''; }
 function renderCats() {
+  { const cur = $('newSubCat').value; $('newSubCat').innerHTML = opt(cats(), cur); }
   $('bCat').innerHTML = opt(cats());
   const all = $('showAll').checked;
   const list = rows.filter(r => all ? (!AUTO.includes(r.det) && r.op2 !== 'Between Acounts') : needsCat(r)).reverse();
-  const subs = new Set(); Object.values(cfg.subs).forEach(a => a.forEach(s => subs.add(s)));
-  $('subList').innerHTML = [...subs].map(s => '<option value="' + esc(s) + '">').join('');
+  fillBulkSub();
   if (!list.length) { $('ctbl').innerHTML = '<tr><td class="empty">Nothing to categorize. Manual rows (My Relatives, Travels, Sakani, …) will appear here.</td></tr>'; return; }
   $('ctbl').innerHTML = '<tr><th></th><th>Row</th><th>Date</th><th>Details</th><th class="n">Amount</th><th>Extras</th><th>Category</th><th>Sub-category</th></tr>' + list.slice(0, 300).map(r => {
     const p = pend[r.r] || {cat: r.cat, sub: r.sub};
-    return '<tr><td><input type="checkbox" class="ck" data-r="' + r.r + '"></td><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.det) + '</td><td class="n">' + money(r.amt) + '</td><td>' + esc(r.ex) + '</td><td><select data-r="' + r.r + '" data-k="cat"><option value="">—</option>' + opt(cats(), p.cat) + '</select></td><td><input type="text" list="subList" data-r="' + r.r + '" data-k="sub" value="' + esc(p.sub) + '"></td></tr>';
+    return '<tr><td><input type="checkbox" class="ck" data-r="' + r.r + '"></td><td>' + r.r + '</td><td>' + esc(r.date) + '</td><td>' + esc(r.det) + '</td><td class="n">' + money(r.amt) + '</td><td>' + esc(r.ex) + '</td><td><select data-r="' + r.r + '" data-k="cat"><option value="">—</option>' + opt(cats(), p.cat) + '</select></td><td class="subcell">' + subCell(r.r, p.cat, p.sub) + '</td></tr>';
   }).join('');
   $('saveCats').disabled = !Object.keys(pend).length;
 }
@@ -930,15 +947,37 @@ $('addAcc').onclick = () => {
   refreshAccFilter(); aeRefillAccounts(); renderAccounts();
 };
 $('ctbl').onchange = e => {
-  const rn = +e.target.dataset.r; if (!rn || !e.target.dataset.k) return;
-  setPend(rn, e.target.dataset.k, e.target.value);
+  const rn = +e.target.dataset.r, k = e.target.dataset.k; if (!rn || !k) return;
+  const td = e.target.closest('tr').querySelector('td.subcell');
+  if (k === 'cat') {                                                   // a new Category: keep the Sub-category only if it belongs to it
+    const cur = (pend[rn] || rows.find(x => x.r === rn)).sub, cat = e.target.value;
+    setPend(rn, 'cat', cat);
+    if (cur && !subsFor(cat, rn).includes(cur)) setPend(rn, 'sub', '');
+    td.innerHTML = subCell(rn, cat, pend[rn].sub);
+  } else if (e.target.tagName === 'INPUT') {                           // a typed new Sub-category
+    const v = e.target.value.trim();
+    if (v) setPend(rn, 'sub', v); else td.innerHTML = subCell(rn, pend[rn] ? pend[rn].cat : '', pend[rn] ? pend[rn].sub : '');
+  } else if (e.target.value === NEWSUB) {
+    td.innerHTML = '<input type="text" data-r="' + rn + '" data-k="sub" placeholder="New sub-category">'; td.firstChild.focus();
+  } else setPend(rn, 'sub', e.target.value);
 };
 $('showAll').onchange = renderCats;
+$('bCat').onchange = fillBulkSub;
+$('bSub').onchange = () => { const n = $('bSub').value === NEWSUB; $('bSubNew').classList.toggle('hide', !n); if (n) $('bSubNew').focus(); };
 $('bApply').onclick = () => {
-  const c = $('bCat').value, s = $('bSub').value.trim();
+  const c = $('bCat').value, s = ($('bSub').value === NEWSUB ? $('bSubNew').value : $('bSub').value).trim();
   document.querySelectorAll('.ck:checked').forEach(ck => { const rn = +ck.dataset.r; setPend(rn, 'cat', c); setPend(rn, 'sub', s); });
   const keep = [...document.querySelectorAll('.ck:checked')].map(x => x.dataset.r);
   renderCats(); keep.forEach(r => { const el = document.querySelector('.ck[data-r="' + r + '"]'); if (el) el.checked = true; });
+};
+$('addSub').onclick = () => {                 // define a sub-category without touching any row
+  const cat = $('newSubCat').value, v = $('newSub').value.trim(), say = (t, bad) => { $('subMsg').style.color = bad ? 'var(--neg)' : 'var(--text-muted)'; $('subMsg').textContent = t; };
+  if (!cat) { say('Choose the category first.', true); return; }
+  if (!v) { say('Type the new sub-category name.', true); return; }
+  if (subsFor(cat).some(s => s.toLowerCase() === v.toLowerCase())) { say('"' + v + '" already exists in ' + cat + '.', true); return; }
+  cfg.subs = cfg.subs || {}; (cfg.subs[cat] = cfg.subs[cat] || []).push(v);
+  $('newSub').value = ''; google.script.run.dashSaveCfg(JSON.stringify(cfg));
+  const keepCat = $('bCat').value; renderCats(); $('bCat').value = keepCat; fillBulkSub(); say('Added "' + v + '" to ' + cat + '.');
 };
 $('addCat').onclick = () => {
   const v = $('newCat').value.trim(); if (!v) return;
