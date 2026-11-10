@@ -278,6 +278,10 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
       <div class="chips" id="chipsP"></div>
       <div class="group-title">Details <button class="link" id="clrD">clear</button></div>
       <div class="chips" id="chipsD"></div>
+      <div class="group-title">Category <button class="link" id="clrC">clear</button></div>
+      <div class="chips" id="chipsC"></div>
+      <div class="group-title">Sub-category <button class="link" id="clrS">clear</button></div>
+      <div class="chips" id="chipsS"></div>
       <div class="group-title" style="margin-top:24px">Totals</div>
       <div class="summary" id="sum" style="margin-top:8px"></div>
       <div class="group-title" style="margin-top:8px">Verification</div>
@@ -487,7 +491,7 @@ const PERIODS = SALARY.map((s, i) => {
 
 let dataReady = false;                    // true once the ledger (saved copy or fresh read) is in memory; balances are only computed after that
 let localAdds = [];                       // entries saved while the ledger is still loading
-let rows = [], cfg = {opening: {}, subs: {}, accounts: []}, pend = {}, chipP = new Set(), chipD = new Set(), shown = 10, catTab = '';
+let rows = [], cfg = {opening: {}, subs: {}, accounts: []}, pend = {}, chipP = new Set(), chipD = new Set(), chipC = new Set(), chipS = new Set(), shown = 10, catTab = '';
 
 function normOp(r) {
   const o = (r.op || '').toLowerCase();
@@ -579,21 +583,29 @@ function init(d) {
 }
 let dirty = {};
 function renderLazy(t) { if (!dirty[t]) return; dirty[t] = false; if (t === 'cats') renderCats(); else if (t === 'catview') renderCatView(); }
-function renderAll() {                           // Records and the status pill now; the two category tabs when opened
+function renderAll() {
+  refreshLabelChips();                           // Records and the status pill now; the two category tabs when opened
   renderRecords(); renderAccounts(); dirty = {cats: true, catview: true};
   const cur = document.querySelector('#tabs .on'); if (cur) renderLazy(cur.dataset.t);
 }
 
 /* ---------- Sheet 3: filter ---------- */
 function opt(list, sel) { return list.map(x => '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>').join(''); }
+const mkChips = (arr, set, id) => { $(id).innerHTML = arr.length ? arr.map(x => '<button class="chip' + (set.has(x) ? ' on' : '') + '" data-v="' + esc(x) + '">' + esc(x) + '</button>').join('') : '<span style="color:var(--text-muted);font-size:12px">none yet</span>'; };
+const labelCats = () => [...new Set([...cats(), ...rows.map(r => r.cat).filter(Boolean)])];
+function labelSubs() {                          // sub-category labels: of the selected categories, or of all categories
+  const s = new Set(); (chipC.size ? [...chipC] : labelCats()).forEach(c => subsFor(c).forEach(x => s.add(x)));
+  chipS.forEach(x => s.add(x));                 // a selected label never disappears
+  return [...s].sort((a, b) => a.localeCompare(b));
+}
+function refreshLabelChips() { mkChips(labelCats(), chipC, 'chipsC'); mkChips(labelSubs(), chipS, 'chipsS'); }
 function buildFilters() {
   $('fOp').innerHTML = opt(OPS);
   { const cur = $('fAcc').value || 'All'; $('fAcc').innerHTML = opt(['All', ...accountNames()], cur); }
   $('fDet').innerHTML = opt(['All', ...AUTO, ...MANUAL]);
   $('fSal').innerHTML = '<option value="">All dates</option>' + PERIODS.map((p, i) => '<option value="' + i + '">' + esc(p.label) + '</option>').join('');
   $('fCat').innerHTML = opt(['All', ...AUTO, ...cats()]);
-  const mk = (arr, set, id) => { $(id).innerHTML = arr.map(x => '<button class="chip' + (set.has(x) ? ' on' : '') + '" data-v="' + esc(x) + '">' + esc(x) + '</button>').join(''); };
-  mk(PEOPLE, chipP, 'chipsP'); mk([...AUTO, ...MANUAL], chipD, 'chipsD');
+  mkChips(PEOPLE, chipP, 'chipsP'); mkChips([...AUTO, ...MANUAL], chipD, 'chipsD'); refreshLabelChips();
 }
 function personHit(r, name) {
   const re = new RegExp('(^|[^A-Z])' + name + '($|[^A-Z])');
@@ -609,10 +621,10 @@ function filtered() {
     if (cat !== 'All' && catOf(r) !== cat) return false;
     if (p && !(r.date >= p.start && r.date <= p.end)) return false;
     if (q.length) { const s = [r.r, r.date, r.op2, r.wd, r.dep, r.amt, r.fee, r.cbx, r.det, r.cat, r.sub, r.ex, r.sms].join(' ').toLowerCase(); if (!q.every(w => s.includes(w))) return false; }
-    if (chipP.size || chipD.size) {
-      const pOK = [...chipP].map(n => personHit(r, n)), dOK = [...chipD].map(x => r.det === x);
-      if (chipMode === 'all') { if (!pOK.every(Boolean) || !dOK.every(Boolean)) return false; }          // every selected chip must match
-      else if (!(pOK.some(Boolean) || dOK.some(Boolean))) return false;                                   // any selected chip
+    if (chipP.size || chipD.size || chipC.size || chipS.size) {
+      const hit = [...chipP].map(n => personHit(r, n)).concat([...chipD].map(x => r.det === x), [...chipC].map(x => catOf(r) === x), [...chipS].map(x => r.sub === x));
+      if (chipMode === 'all') { if (!hit.every(Boolean)) return false; }          // every selected chip must match
+      else if (!hit.some(Boolean)) return false;                                   // any selected chip
     }
     return true;
   });
@@ -622,7 +634,8 @@ let chipMode = 'any';
 try { chipMode = localStorage.getItem('mb_chipmode') === 'all' ? 'all' : 'any'; } catch (e) { /* ignore */ }
 function syncChipMode() { document.querySelectorAll('#chipMode .chip').forEach(b => b.classList.toggle('on', b.dataset.m === chipMode)); }
 function renderRecords() {
-  $('chipHint').textContent = chipMode === 'all' && chipD.size > 1 ? 'A row has only one Details value, so two or more Details can never match together.' : '';
+  { const dup = [['Details', chipD], ['Category', chipC], ['Sub-category', chipS]].filter(x => x[1].size > 1).map(x => x[0]);
+    $('chipHint').textContent = chipMode === 'all' && dup.length ? 'A row has only one ' + dup.join(' / ') + ' value, so two or more of them can never match together.' : ''; }
   const f = filtered();
   const view = f.slice().reverse();   // newest first
   const cbTot = f.reduce((s, r) => s + ((r.cbIsEntry ? r.amt : 0) + cbp(r)), 0);
@@ -640,7 +653,7 @@ function renderRecords() {
     '<span title="Fees column + rows with Details = Fees"><span>Fees</span><b>' + money(fee) + ' SAR</b></span>' +
     '<span><span>Cash Back</span><b style="color:#0284c7">' + money(cbTot) + ' SAR</b></span>' +
     '<span style="border-left:3px solid var(--primary);background:var(--primary-soft)"><span>Net Cashflow</span><b style="color:var(--primary-text)">' + money(inc - exp - feeCol) + ' SAR</b></span>';
-  const nAct = ['fOp', 'fDet', 'fSal', 'fAcc', 'fCat'].filter(id => $(id).selectedIndex > 0).length + (chipP.size ? 1 : 0) + (chipD.size ? 1 : 0) + ($('fQ').value.trim() ? 1 : 0);
+  const nAct = ['fOp', 'fDet', 'fSal', 'fAcc', 'fCat'].filter(id => $(id).selectedIndex > 0).length + (chipP.size ? 1 : 0) + (chipD.size ? 1 : 0) + (chipC.size ? 1 : 0) + (chipS.size ? 1 : 0) + ($('fQ').value.trim() ? 1 : 0);
   $('filtHint').textContent = nAct ? nAct + ' active' : 'none active';
   $('sumHint').textContent = view.length + ' rows · Net ' + money(inc - exp - feeCol) + ' SAR';
   const head = '<tr><th></th><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th></tr>';
@@ -925,10 +938,13 @@ function chipClick(set, id) {
     e.target.classList.toggle('on'); shown = pageSize(); renderRecords();
   };
 }
-chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD');
+chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); chipClick(chipS, 'chipsS');
+$('chipsC').onclick = e => { const v = e.target.dataset.v; if (!v) return; chipC.has(v) ? chipC.delete(v) : chipC.add(v); mkChips(labelCats(), chipC, 'chipsC'); mkChips(labelSubs(), chipS, 'chipsS'); shown = pageSize(); renderRecords(); };   // the sub-category labels follow the chosen categories
+$('clrC').onclick = () => { chipC.clear(); refreshLabelChips(); shown = pageSize(); renderRecords(); };
+$('clrS').onclick = () => { chipS.clear(); refreshLabelChips(); shown = pageSize(); renderRecords(); };
 $('clrP').onclick = () => { chipP.clear(); buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); renderRecords(); };
 function clearRecordFilters() {          // every selected filter at once: the five lists, the search box and both chip groups
-  chipP.clear(); chipD.clear(); $('fQ').value = '';
+  chipP.clear(); chipD.clear(); chipC.clear(); chipS.clear(); $('fQ').value = '';
   buildFilters(); chipClick(chipP, 'chipsP'); chipClick(chipD, 'chipsD'); shown = pageSize(); renderRecords();
 }
 $('clrAll').onclick = clearRecordFilters;
