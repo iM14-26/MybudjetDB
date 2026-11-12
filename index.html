@@ -212,6 +212,9 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
 .xcell{max-width:110px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;font-size:12px;cursor:pointer}
 .xcell.open{display:block;max-width:230px;-webkit-line-clamp:unset}
 @media(max-width:760px){#ctbl th,#ctbl td{padding:8px 8px}#ctbl select{max-width:132px}.xcell{max-width:92px}}
+.after{white-space:nowrap;font-size:12px;line-height:1.35}
+.after .afn{color:var(--text-muted)}
+.after b{font-family:'JetBrains Mono',monospace}
 </style>
 </head>
 <body>
@@ -310,6 +313,16 @@ td.edited,tr:hover td.edited{background:#fff2cc!important}
     <div id="accStale" class="hide" style="color:var(--text-muted);font-size:12.5px;margin:0 0 8px"></div>
     <div class="group-title" style="margin:0 0 8px;justify-content:space-between"><span>Total credit</span><button class="iconbtn" id="eyeBtn" type="button" title="Hide numbers"></button></div>
     <div class="acwrap" id="accCards"></div>
+    <details class="panel" id="asofBox">
+      <summary class="fsum"><b>Credit at a date &amp; time</b></summary>
+      <div class="inline" style="margin-top:14px">
+        <label class="f">Date<input type="date" id="asDate"></label>
+        <label class="f">Time<input type="time" id="asTime"></label>
+        <button class="btn" id="asShow" type="button">Show</button>
+        <button class="btn alt" id="asNow" type="button">Now</button>
+      </div>
+      <div id="asOut" style="margin-top:14px"></div>
+    </details>
     <details class="panel" id="setBox">
       <summary class="fsum"><b>Settings</b></summary>
       <nav id="setTabs"><button type="button" data-t="filter" class="on">Credit details</button><button type="button" data-t="accts">Accounts #</button><button type="button" data-t="cards">Cards</button></nav>
@@ -652,7 +665,30 @@ const pageSize = () => { const v = $('fRows').value; return v === 'all' ? Infini
 let chipMode = 'any';
 try { chipMode = localStorage.getItem('mb_chipmode') === 'all' ? 'all' : 'any'; } catch (e) { /* ignore */ }
 function syncChipMode() { document.querySelectorAll('#chipMode .chip').forEach(b => b.classList.toggle('on', b.dataset.m === chipMode)); }
+/* ---------- Credit after each operation / at a date and time (same rules as the Accounts table) ---------- */
+const rowKey = r => (r.date || '') + ' ' + ('0' + (r.h || 0)).slice(-2) + ':' + ('0' + (r.m || 0)).slice(-2);
+function balanceEngine() {
+  const bal = {}, get = n => (n in bal) ? bal[n] : (bal[n] = +cfg.opening[n] || 0);
+  return {bal, get, apply(r) {                  // moves the accounts a row touches; returns them
+    const t = [];
+    if (r.dep) { bal[r.dep] = get(r.dep) + r.amt; t.push(r.dep); }
+    if (r.wd) { bal[r.wd] = get(r.wd) - r.amt - r.fee; t.push(r.wd); }
+    const c = cbp(r); if (c) { bal[CB_P_ACCOUNT] = get(CB_P_ACCOUNT) + c; t.push(CB_P_ACCOUNT); }
+    return [...new Set(t)];
+  }};
+}
+function creditAfterMap() {                     // row number -> [[account, TOTAL CREDIT after this row], ...]
+  const e = balanceEngine(), out = {};
+  rows.forEach(r => { out[r.r] = e.apply(r).map(n => [n, e.bal[n]]); });
+  return out;
+}
+function balancesUntil(until) {                 // TOTAL CREDIT of every account after all rows up to a date-and-time (null = all rows)
+  const e = balanceEngine();
+  rows.forEach(r => { if (!until || rowKey(r) <= until) e.apply(r); });
+  return e;
+}
 function renderRecords() {
+  const afterMap = creditAfterMap();
   { const dup = [['Details', chipD], ['Category', chipC], ['Sub-category', chipS]].filter(x => x[1].size > 1).map(x => x[0]);
     $('chipHint').textContent = chipMode === 'all' && dup.length ? 'A row has only one ' + dup.join(' / ') + ' value, so two or more of them can never match together.' : ''; }
   const f = filtered();
@@ -675,8 +711,8 @@ function renderRecords() {
   const nAct = ['fOp', 'fDet', 'fSal', 'fAcc', 'fCat'].filter(id => $(id).selectedIndex > 0).length + (chipP.size ? 1 : 0) + (chipD.size ? 1 : 0) + (chipC.size ? 1 : 0) + (chipS.size ? 1 : 0) + ($('fQ').value.trim() ? 1 : 0);
   $('filtHint').textContent = nAct ? nAct + ' active' : 'none active';
   $('sumHint').textContent = view.length + ' rows · Net ' + money(inc - exp - feeCol) + ' SAR';
-  const head = '<tr><th></th><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th></tr>';
-  if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="14" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
+  const head = '<tr><th></th><th>Row</th><th>Date</th><th>H:M</th><th>Operation</th><th>Withdrawn</th><th>Deposited</th><th class="n">Amount</th><th class="n">Fees</th><th class="n">Cash back</th><th>Credit after</th><th>Details</th><th>Category</th><th>Extras</th><th>SMS</th></tr>';
+  if (!view.length) { $('tbl').innerHTML = head + '<tr><td colspan="15" class="empty">No rows match these filters. Clear a filter or pick another salary period.</td></tr>'; $('more').hidden = true; return; }
   const body = view.slice(0, shown).map(r => {
     const cls = r.op2 === 'Incomes' ? 'inc' : r.op2 === 'Expenses' ? 'exp' : 'btw';
     const c = catOf(r); const full = c + (r.sub ? ' / ' + r.sub : '');
@@ -692,6 +728,7 @@ function renderRecords() {
       td(['amt'], 'n amt', '', sign + money(r.amt)) +
       td(['fee'], 'n', 'color:var(--text-muted)', r.fee ? money(r.fee) : '—') +
       td(['amt2', 'cbp', 'sms2'], 'n', 'color:#0284c7;font-weight:600', r.cbx ? '+' + money(r.cbx) : '—') +
+      '<td class="after">' + (afterMap[r.r] || []).map(a => '<div title="' + esc(a[0]) + (CREDIT_BONUS.hasOwnProperty(a[0]) ? ' · CREDIT ' + money(CREDIT_BONUS[a[0]] + a[1]) : '') + '"><span class="afn">' + esc(CARD_LABEL[a[0]] || a[0]) + '</span> <b style="color:' + (a[1] < 0 ? 'var(--neg)' : 'var(--text-main)') + '">' + money(a[1]) + '</b></div>').join('') + '</td>' +
       td(['det'], '', '', '<b>' + esc(r.det) + '</b>') +
       '<td>' + (c ? '<span class="tag">' + esc(full) + '</span>' : (needsCat(r) ? '<span class="tag" style="background:var(--warn-soft);color:#b45309;border-color:var(--warn-border)">needs category</span>' : '')) + '</td>' +
       td(['ex'], '', '', esc(r.ex)) +
@@ -733,6 +770,25 @@ const EYE = {
 };
 let hideNums = true;                        // numbers are hidden every time the app opens; the eye shows them for this visit only
 let accCardData = {list: [], total: 0};
+function renderAsOf() {                       // how much credit every account had at the chosen date and time
+  const d = $('asDate').value, t = $('asTime').value || '00:00', out = $('asOut');
+  if (!d) { out.innerHTML = '<span style="color:var(--text-muted)">Choose a date (and a time).</span>'; return; }
+  const then = balancesUntil(d + ' ' + t), now = balancesUntil(null);
+  const names = [...new Set([...Object.keys(now.bal), ...Object.keys(then.bal), ...accountNames(), CB_P_ACCOUNT])];
+  const ord = n => { const i = CARD_ORDER.indexOf(n); return i < 0 ? CARD_ORDER.length : i; };
+  names.sort((a, b) => ord(a) - ord(b) || a.localeCompare(b));
+  const col = v => 'color:' + (v < 0 ? 'var(--neg)' : 'var(--text-main)');
+  let sThen = 0, sNow = 0;
+  const body = names.map(n => { const a = then.get(n), b = now.get(n), dlt = b - a; sThen += a; sNow += b;
+    const cr = CREDIT_BONUS.hasOwnProperty(n) ? money(CREDIT_BONUS[n] + a) : '';
+    return '<tr><td>' + esc(n) + '</td><td class="n" style="font-weight:600">' + cr + '</td><td class="n" style="font-weight:700;' + col(a) + '">' + money(a) + '</td><td class="n" style="' + col(b) + '">' + money(b) + '</td><td class="n" style="color:' + (dlt < 0 ? 'var(--neg)' : dlt > 0 ? 'var(--pos)' : 'var(--text-muted)') + '">' + (dlt > 0 ? '+' : '') + money(dlt) + '</td></tr>'; }).join('');
+  out.innerHTML = '<div style="color:var(--text-muted);margin-bottom:8px">After every operation up to <b>' + esc(d) + ' ' + esc(t) + '</b> (opening credit + all rows up to that minute).</div>' +
+    '<div class="tablewrap"><table><tr><th>Account</th><th class="n">CREDIT</th><th class="n">TOTAL CREDIT then</th><th class="n">Now</th><th class="n">Change</th></tr>' + body +
+    '<tr class="cvtotal"><td>All accounts</td><td></td><td class="n">' + money(sThen) + '</td><td class="n">' + money(sNow) + '</td><td class="n">' + (sNow - sThen > 0 ? '+' : '') + money(sNow - sThen) + '</td></tr></table></div>';
+}
+function asOfNow() { const n = new Date(), p = x => String(x).padStart(2, '0'); $('asDate').value = n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate()); $('asTime').value = p(n.getHours()) + ':' + p(n.getMinutes()); renderAsOf(); }
+$('asShow').onclick = renderAsOf; $('asNow').onclick = asOfNow; $('asDate').onchange = renderAsOf; $('asTime').onchange = renderAsOf;
+$('asofBox').addEventListener('toggle', () => { if ($('asofBox').open && !$('asDate').value) asOfNow(); });
 function renderAccCards(list, total) {       // a tall "All accounts" card, then the accounts; the two credit cards are twice as wide
   accCardData = {list: list, total: total};
   const ord = a => { const i = CARD_ORDER.indexOf(a.n); return i < 0 ? CARD_ORDER.length : i; };
